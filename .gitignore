@@ -1,0 +1,19 @@
+# Local config (each member has their own MySQL password)
+resources/config/db.properties
+
+# Uploaded images (keep the folder, ignore its contents)
+uploads/*
+!uploads/.gitkeep
+
+# Build output
+bin/
+out/
+build/
+*.class
+
+# IDE / OS files
+.idea/
+*.iml
+nbproject/private/
+.DS_Store
+Thumbs.db
