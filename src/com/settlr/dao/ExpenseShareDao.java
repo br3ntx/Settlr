@@ -71,12 +71,20 @@ public class ExpenseShareDao implements Dao<ExpenseShare> {
         }
     }
 
-    /** Updates the amount and the settled time. */
+    /** Updates the amount and the settled time on its own connection. */
     @Override
     public void update(ExpenseShare share) throws DataAccessException {
+        try (Connection con = DBConnection.getInstance().getConnection()) {
+            update(con, share);
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not update the share.", ex);
+        }
+    }
+
+    /** Same update, but inside the caller's transaction. */
+    public void update(Connection con, ExpenseShare share) throws DataAccessException {
         String sql = "UPDATE expense_shares SET amount_owed = ?, settled_at = ? WHERE share_id = ?";
-        try (Connection con = DBConnection.getInstance().getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setBigDecimal(1, share.getAmountOwed());
             setNullableDateTime(ps, 2, share.getSettledAt());
             ps.setInt(3, share.getId());
