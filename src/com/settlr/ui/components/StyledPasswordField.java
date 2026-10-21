@@ -1,4 +1,4 @@
-package com.settlr.ui.components;
+ package com.settlr.ui.components;
 
 import javax.swing.JPasswordField;
 import java.awt.Graphics;
