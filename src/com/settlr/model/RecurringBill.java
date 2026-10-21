@@ -83,6 +83,9 @@ public class RecurringBill {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("Title cannot be blank.");
         }
+        if (title.trim().length() > 80) {
+            throw new IllegalArgumentException("Title must not exceed 80 characters.");
+        }
         this.title = title.trim();
     }
 
@@ -128,9 +131,8 @@ public class RecurringBill {
     }
 
     public void setDueDay(int dueDay) {
-        if (dueDay < 1 || dueDay > 31) {
-            throw new IllegalArgumentException(
-                    "Due day must be between 1 and 31.");
+        if (dueDay < 1 || dueDay > 28) {
+            throw new IllegalArgumentException("Due day must be between 1 and 28.");
         }
         this.dueDay = dueDay;
     }
@@ -212,7 +214,7 @@ public class RecurringBill {
                 paidBy,
                 dueDate,
                 createdBy,
-                null
+                LocalDateTime.now()
         );
     }
 }
