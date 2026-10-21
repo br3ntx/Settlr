@@ -26,6 +26,14 @@ public class LoginScreen extends JPanel {   // extends BaseScreen
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
+        ImageIcon raw = new ImageIcon("resources/images/SETTLR LOGO.png");
+        Image scaled = raw.getImage().getScaledInstance(90, 90, Image.SCALE_SMOOTH); // size from Figma
+        JLabel logo = new JLabel(new ImageIcon(scaled));
+        logo.setAlignmentX(Component.CENTER_ALIGNMENT);
+        content.add(logo);
+        content.add(Box.createVerticalStrut(12));
+
+
         JLabel title = new JLabel("WELCOME TO SETTLR");
         title.setFont(Theme.font(Font.BOLD, 40));
         title.setForeground(Theme.TEXT);

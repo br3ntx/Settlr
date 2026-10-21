@@ -37,7 +37,7 @@ public class StyledTextField extends JTextField {
         RoundedBorder border = new RoundedBorder(Theme.INPUT_BORDER, 2, 24, new Insets(8, 16, 8, 16));
         field.setBorder(border);
         field.setOpaque(false); // we paint our own rounded background
-        field.setBackground(Theme.SURFACE);
+        field.setBackground(Theme.INPUT_BACKGROUND);
         field.setForeground(Theme.TEXT);
         field.setCaretColor(Theme.TEXT);
         field.setFont(Theme.font(Font.PLAIN, 14));

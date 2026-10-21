@@ -12,18 +12,21 @@ public final class Theme {
 
     private Theme() { } // only constants, so nobody should create a Theme object
 
-    // ---- Palette (from the "Design starter" section of the plan doc) ----
-    public static final Color PRIMARY       = new Color(0x1F7A68); // Settlr Teal
-    public static final Color PRIMARY_DARK  = new Color(0x155A4C); // hover / pressed
-    public static final Color ACCENT        = new Color(0xF2B630); // Trophy Gold
-    public static final Color WARNING       = new Color(0xE8862A); // Late Amber
-    public static final Color DANGER        = new Color(0xC9443F); // Utang Coral
-    public static final Color BACKGROUND    = new Color(0xF7F5F0); // app background
-    public static final Color SURFACE       = Color.WHITE;         // cards, dialogs
-    public static final Color BORDER        = new Color(0xE3DED4); // card borders
-    public static final Color INPUT_BORDER  = new Color(0xBDB6A8); // text field outline
-    public static final Color TEXT          = new Color(0x1D2627);
-    public static final Color MUTED_TEXT    = new Color(0x6B7474);
+    // ---- Palette (from Figma) ----
+public static final Color PRIMARY       = new Color(0xE8D9CD); // beige: buttons, selected sidebar item
+public static final Color PRIMARY_DARK  = new Color(0xD4C3B5); // beige when hovered/pressed
+public static final Color ON_PRIMARY    = new Color(0x1F2B2B); // NEW: text on beige buttons
+public static final Color ACCENT        = new Color(0xF2B630); // trophy gold (leaderboard)
+public static final Color WARNING       = new Color(0xE8862A);
+public static final Color DANGER        = new Color(0xE0605A); // a bit brighter so it shows on dark
+public static final Color BACKGROUND    = new Color(0x223030); // page background
+public static final Color SIDEBAR       = new Color(0x192525); // NEW: darker sidebar
+public static final Color SURFACE = new Color(0x992D3939, true); // cards
+public static final Color INPUT_BACKGROUND = new Color(0x2C3838); // NEW: inside text fields
+public static final Color BORDER        = new Color(0x3A4747); // card outlines
+public static final Color INPUT_BORDER  = new Color(0x6B7A7A); // field outlines
+public static final Color TEXT          = new Color(0xF2F2EF); // main text (light)
+public static final Color MUTED_TEXT    = new Color(0x8A9797); // placeholders, labels
 
     // ---- Fonts ----
     // Uses Inter if it is installed, otherwise Segoe UI (on every Windows PC).

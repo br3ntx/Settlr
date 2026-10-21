@@ -20,7 +20,7 @@ public class RoundedButton extends JButton {
         setBorderPainted(false);
         setFocusPainted(false);
         setRolloverEnabled(true);    // so getModel().isRollover() works
-        setForeground(Color.WHITE);
+        setForeground(Theme.ON_PRIMARY);
         setFont(Theme.font(Font.BOLD, 15));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         setPreferredSize(new Dimension(300, 44));
