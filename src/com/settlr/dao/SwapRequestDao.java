@@ -52,6 +52,14 @@ public class SwapRequestDao implements Dao<SwapRequest> {
         return findOne(SELECT + "WHERE sr.assignment_id = ? AND sr.status = 'PENDING'", assignmentId);
     }
 
+    /**
+     * PENDING swaps (any household) whose assignment is due before the given
+     * time. CatchUpService auto-declines these (master doc 3.4 and 3.7).
+     */
+    public List<SwapRequest> findPendingPastDue(LocalDateTime now) throws DataAccessException {
+        return findMany(SELECT + "WHERE sr.status = 'PENDING' AND ta.due_at < ? ORDER BY ta.due_at", now);
+    }
+
     @Override
     public int insert(SwapRequest s) throws DataAccessException {
         String sql = "INSERT INTO swap_requests (assignment_id, from_user, to_user, status, created_at) "
@@ -141,11 +149,11 @@ public class SwapRequestDao implements Dao<SwapRequest> {
         }
     }
 
-    private List<SwapRequest> findMany(String sql, int param) throws DataAccessException {
+    private List<SwapRequest> findMany(String sql, Object param) throws DataAccessException {
         List<SwapRequest> list = new ArrayList<>();
         try (Connection c = DBConnection.getInstance().getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
-            ps.setInt(1, param);
+            ps.setObject(1, param);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapRow(rs));
