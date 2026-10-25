@@ -5,6 +5,7 @@ import com.settlr.model.LeaderboardEntry;
 import com.settlr.ranking.RankingCategory;
 import com.settlr.ranking.RankingPeriod;
 import com.settlr.service.LeaderboardService;
+import com.settlr.ui.BaseScreen;
 import com.settlr.ui.theme.Theme;
 import com.settlr.util.MoneyUtil;
 
@@ -48,9 +49,9 @@ import java.util.function.DoubleFunction;
  *
  * <p>The screen never touches SQL or decides who wins: it asks LeaderboardService and draws the
  * answer. Gold (Theme.ACCENT) is used only for rank #1, weekly titles and the podium.
- * It extends JPanel for now; when BaseScreen exists, change the parent and keep onShow().
+ * It extends BaseScreen, so the Navigator calls onShow() every time it appears.
  */
-public class LeaderboardScreen extends JPanel {
+public class LeaderboardScreen extends BaseScreen {
 
     /** TEMP: true while DBConnection/Session/etc. are not merged yet. Set to false to use the real service. */
     private static final boolean USE_SAMPLE_DATA = true;
@@ -91,6 +92,7 @@ public class LeaderboardScreen extends JPanel {
     }
 
     /** Called every time the screen appears, so the numbers are always fresh. */
+    @Override
     public void onShow() {
         showError(null);
         try {

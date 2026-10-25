@@ -3,6 +3,7 @@ package com.settlr.ui.screens;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.StyledPasswordField;
 import com.settlr.ui.components.StyledTextField;
+import com.settlr.ui.BaseScreen;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
@@ -12,7 +13,7 @@ import java.awt.event.MouseEvent;
 import java.util.Arrays;
 
 
-public class LoginScreen extends JPanel {   // extends BaseScreen
+public class LoginScreen extends BaseScreen {
 
     private final StyledTextField usernameField = new StyledTextField("Username");
     private final StyledPasswordField passwordField = new StyledPasswordField("Password");
@@ -148,6 +149,23 @@ public class LoginScreen extends JPanel {   // extends BaseScreen
                 "Settlr", JOptionPane.INFORMATION_MESSAGE);
 
         Arrays.fill(password, '\0'); // wipe the password from memory
+    }
+
+    // ---------- BaseScreen ----------
+
+    @Override
+    public void onShow() {
+        // Nothing to load; the Navigator shows this screen after log out too
+    }
+
+    @Override
+    public boolean showsSidebar() {
+        return false;
+    }
+
+    @Override
+    public boolean requiresLogin() {
+        return false; // you can't need to be logged in to see the login page
     }
 
     private void handleSignUp() {

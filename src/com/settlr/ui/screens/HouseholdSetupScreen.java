@@ -3,6 +3,7 @@ package com.settlr.ui.screens;
 import com.settlr.model.Household;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.StyledTextField;
+import com.settlr.ui.BaseScreen;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
@@ -13,7 +14,7 @@ import java.awt.*;
  * "Join a household". PREVIEW ONLY: it validates input and shows messages,
  * but saves nothing and talks to no database.
  */
-public class HouseholdSetupScreen extends JPanel {
+public class HouseholdSetupScreen extends BaseScreen {
 
     private final StyledTextField nameField = new StyledTextField("Household name");
     private final StyledTextField codeField = new StyledTextField("6-character invite code");
@@ -130,6 +131,18 @@ public class HouseholdSetupScreen extends JPanel {
         l.setFont(Theme.font(Font.PLAIN, 13));
         l.setForeground(Theme.DANGER);
         return l;
+    }
+
+    // ---------- BaseScreen ----------
+
+    @Override
+    public void onShow() {
+        // Nothing to load yet; clear old input here once the form is connected
+    }
+
+    @Override
+    public boolean showsSidebar() {
+        return false;
     }
 
     // ---------- Temporary preview entry point ----------

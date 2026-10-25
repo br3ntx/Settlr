@@ -1,27 +1,33 @@
 package com.settlr;
 
-import com.settlr.ui.screens.LoginScreen;
+import com.settlr.exception.SettlrException;
+import com.settlr.service.CatchUpService;
+import com.settlr.ui.MainFrame;
+import com.settlr.ui.Navigator;
 
-import javax.swing.*;
-import java.awt.Dimension;
+import javax.swing.SwingUtilities;
 
 /**
  * Entry point of Settlr.
- * For now it opens a plain window showing the login screen.
- * TODO (M1): load fonts, run CatchUpService.runOnStartup(), open MainFrame instead.
+ * 1. Catches up on anything that happened while the app was closed
+ *    (missed chores, expired swaps, recurring tasks and bills).
+ * 2. Opens the main window on the login screen.
  */
 public class Main {
     public static void main(String[] args) {
         System.setProperty("awt.useSystemAAFontSettings", "on"); // smoother text
 
+        try {
+            new CatchUpService().runOnStartup();
+        } catch (SettlrException e) {
+            // No database yet (or it's down): still open the app so the UI can be worked on
+            System.err.println("Startup catch-up skipped: " + e.getMessage());
+        }
+
         // Swing code must run on the Event Dispatch Thread
         SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("Settlr");
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(1100, 700);
-            frame.setMinimumSize(new Dimension(800, 600));
-            frame.setLocationRelativeTo(null); // center on screen
-            frame.setContentPane(new LoginScreen());
+            MainFrame frame = new MainFrame();
+            Navigator.getInstance().show(Navigator.LOGIN);
             frame.setVisible(true);
         });
     }

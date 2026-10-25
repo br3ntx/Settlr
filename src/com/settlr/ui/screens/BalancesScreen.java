@@ -5,6 +5,7 @@ import com.settlr.model.Balance;
 import com.settlr.service.BalanceService;
 import com.settlr.service.PaymentService;
 import com.settlr.ui.components.RoundedButton;
+import com.settlr.ui.BaseScreen;
 import com.settlr.ui.theme.Theme;
 import com.settlr.util.DateTimeUtil;
 import com.settlr.util.MoneyUtil;
@@ -19,9 +20,9 @@ import java.util.List;
  * Balances screen (master doc section 5): one row per person with the net amount and a
  * Settle Up button, plus a section for payments waiting for MY confirmation. It only shows
  * data and calls services; all rules (who may confirm, what is owed) live in the services.
- * Extends JPanel for now and becomes a BaseScreen later; onShow() is already the reload hook.
+ * Extends BaseScreen, so the Navigator calls onShow() (the reload hook) every time it appears.
  */
-public class BalancesScreen extends JPanel {
+public class BalancesScreen extends BaseScreen {
 
     /** One service call that can fail with a readable message. */
     private interface PaymentAction {
@@ -86,6 +87,7 @@ public class BalancesScreen extends JPanel {
     }
 
     /** Reloads everything and clears old messages. The navigator will call this each time the screen appears. */
+    @Override
     public void onShow() {
         showMessage(" ", false);
         reload();

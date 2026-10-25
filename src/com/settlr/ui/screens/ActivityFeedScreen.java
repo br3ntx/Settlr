@@ -4,6 +4,7 @@ import com.settlr.exception.SettlrException;
 import com.settlr.model.ActivityLog;
 import com.settlr.model.ActivityType;
 import com.settlr.service.ActivityService;
+import com.settlr.ui.BaseScreen;
 import com.settlr.ui.theme.Theme;
 import com.settlr.util.DateTimeUtil;
 
@@ -36,9 +37,9 @@ import java.util.List;
  *
  * <p>The screen only shows what ActivityService returns. The sentence of each event was written
  * when it happened ("Ana completed Wash Dishes (2 hours late)"), so nothing is rebuilt here.
- * It extends JPanel for now; when BaseScreen exists, change the parent and keep onShow().
+ * It extends BaseScreen, so the Navigator calls onShow() every time it appears.
  */
-public class ActivityFeedScreen extends JPanel {
+public class ActivityFeedScreen extends BaseScreen {
 
     /** TEMP: true while DBConnection/Session/etc. are not merged yet. Set to false to use the real service. */
     private static final boolean USE_SAMPLE_DATA = true;
@@ -69,6 +70,7 @@ public class ActivityFeedScreen extends JPanel {
     }
 
     /** Called every time the screen appears, so the feed is always fresh. */
+    @Override
     public void onShow() {
         showError(null);
         List<ActivityLog> feed = new ArrayList<>();
