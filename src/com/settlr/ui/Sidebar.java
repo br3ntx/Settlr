@@ -2,6 +2,7 @@ package com.settlr.ui;
 
 import com.settlr.model.Household;
 import com.settlr.model.User;
+import com.settlr.service.AuthService;
 import com.settlr.ui.theme.Theme;
 import com.settlr.util.Session;
 
@@ -65,7 +66,7 @@ public class Sidebar extends JPanel {
 
         NavButton logout = new NavButton("Log out");
         logout.addActionListener(e -> {
-            Session.getInstance().end();
+            new AuthService().logout();
             Navigator.getInstance().show(Navigator.LOGIN);
         });
         add(logout);

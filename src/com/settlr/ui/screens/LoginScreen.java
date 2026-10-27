@@ -1,10 +1,16 @@
 package com.settlr.ui.screens;
 
+import com.settlr.exception.AuthException;
+import com.settlr.exception.DataAccessException;
+import com.settlr.exception.SettlrException;
+import com.settlr.service.AuthService;
+import com.settlr.ui.Navigator;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.StyledPasswordField;
 import com.settlr.ui.components.StyledTextField;
 import com.settlr.ui.BaseScreen;
 import com.settlr.ui.theme.Theme;
+import com.settlr.util.Session;
 
 import javax.swing.*;
 import java.awt.*;
@@ -18,6 +24,7 @@ public class LoginScreen extends BaseScreen {
     private final StyledTextField usernameField = new StyledTextField("Username");
     private final StyledPasswordField passwordField = new StyledPasswordField("Password");
     private final JLabel errorLabel = new JLabel(" "); // a space keeps its height when empty
+    private final AuthService authService = new AuthService();
 
     public LoginScreen() {
         setBackground(Theme.BACKGROUND);
@@ -139,23 +146,44 @@ public class LoginScreen extends BaseScreen {
         }
         errorLabel.setText(" ");
 
-        // TODO (when AuthService and Session exist):
-        //   User user = authService.login(username, new String(password));
-        //   Session.getInstance().start(user);
-        //   Navigator.getInstance().show("dashboard");
-        // If login fails, catch AuthException and show it in errorLabel instead.
-        JOptionPane.showMessageDialog(this,
-                "Form works! Real login will connect once AuthService is ready.",
-                "Settlr", JOptionPane.INFORMATION_MESSAGE);
+        try {
+            authService.login(username, new String(password)); // also starts the Session
+            passwordField.setText("");
 
-        Arrays.fill(password, '\0'); // wipe the password from memory
+            if (Session.getInstance().hasHousehold()) {
+                Navigator.getInstance().show(Navigator.DASHBOARD);
+                // TODO (#3.8, M7): show ReminderDialog here if
+                //   new NotificationService().getLoginReminders() is not empty
+            } else {
+                Navigator.getInstance().show(Navigator.HOUSEHOLD_SETUP);
+            }
+        } catch (AuthException e) {
+            errorLabel.setText(e.getMessage()); // "Incorrect username or password"
+            passwordField.setText("");
+            passwordField.requestFocusInWindow();
+        } catch (DataAccessException e) {
+            errorLabel.setText("Can't reach the database. Is MySQL running?");
+            e.printStackTrace(); // the real cause, for whoever is debugging
+        } catch (SettlrException e) {
+            errorLabel.setText(e.getMessage());
+        } catch (RuntimeException e) {
+            // A bug, not a wrong password: show something instead of failing silently
+            errorLabel.setText("Login failed: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            Arrays.fill(password, '\0'); // wipe the password from memory
+        }
     }
 
     // ---------- BaseScreen ----------
 
     @Override
     public void onShow() {
-        // Nothing to load; the Navigator shows this screen after log out too
+        // Shown at startup and after log out: start with an empty form
+        usernameField.setText("");
+        passwordField.setText("");
+        errorLabel.setText(" ");
+        SwingUtilities.invokeLater(usernameField::requestFocusInWindow);
     }
 
     @Override
