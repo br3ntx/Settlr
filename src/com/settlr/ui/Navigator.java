@@ -18,6 +18,7 @@ public final class Navigator {
 
     // Screen names, so nobody mistypes "tasks" as "task"
     public static final String LOGIN = "login";
+    public static final String REGISTER = "register";
     public static final String HOUSEHOLD_SETUP = "household-setup";
     public static final String DASHBOARD = "dashboard";
     public static final String TASKS = "tasks";
@@ -57,6 +58,11 @@ public final class Navigator {
     public void register(String name, BaseScreen screen) {
         screens.put(name, screen);
         container.add(screen, name);
+    }
+
+    /** The registered screen with this name (null if none). */
+    public BaseScreen getScreen(String name) {
+        return screens.get(name);
     }
 
     /** The name of the screen currently showing (null before the first show). */

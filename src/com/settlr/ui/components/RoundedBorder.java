@@ -12,7 +12,7 @@ public class RoundedBorder extends AbstractBorder {
 
     private Color color;
     private final int thickness;
-    private final int arc;        // how round the corners are
+    private int arc;              // how round the corners are (bigger than the height = pill)
     private final Insets padding; // space between the outline and the text
 
     public RoundedBorder(Color color, int thickness, int arc, Insets padding) {
@@ -30,6 +30,10 @@ public class RoundedBorder extends AbstractBorder {
         return arc;
     }
 
+    public void setArc(int arc) {
+        this.arc = arc;
+    }
+
     @Override
     public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
         Graphics2D g2 = (Graphics2D) g.create();
@@ -37,8 +41,9 @@ public class RoundedBorder extends AbstractBorder {
         g2.setColor(color);
         g2.setStroke(new BasicStroke(thickness));
         float half = thickness / 2f; // keeps the stroke fully inside the component
+        int a = Math.min(arc, height); // never rounder than the height, so big values make a pill, not an oval
         g2.draw(new RoundRectangle2D.Float(x + half, y + half,
-                width - thickness, height - thickness, arc, arc));
+                width - thickness, height - thickness, a, a));
         g2.dispose();
     }
 

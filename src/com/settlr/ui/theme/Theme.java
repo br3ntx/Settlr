@@ -28,6 +28,18 @@ public static final Color INPUT_BORDER  = new Color(0x6B7A7A); // field outlines
 public static final Color TEXT          = new Color(0xF2F2EF); // main text (light)
 public static final Color MUTED_TEXT    = new Color(0x8A9797); // placeholders, labels
 
+    // ---- Mint (Figma "Add expenses" button, selected member chips) ----
+public static final Color MINT          = new Color(0x5FD0B0);
+public static final Color MINT_DARK     = new Color(0x4FB89A); // hovered/pressed
+public static final Color ON_MINT       = new Color(0x173030); // text on mint
+public static final Color OVERLAY       = new Color(10, 18, 18, 165); // dims the app behind a popup
+
+    // ---- Glass card (Figma: inner shadow, inner glow, light edge) ----
+public static final Color GLASS_FILL    = new Color(0x2C3838);
+public static final Color GLASS_SHADOW  = new Color(0, 0, 0, 38);       // dark rim, top + left
+public static final Color GLASS_GLOW    = new Color(255, 255, 255, 9);  // light rim, bottom + right
+public static final Color GLASS_EDGE    = new Color(255, 255, 255, 52); // thin outline
+
     // ---- Fonts ----
     // Uses Inter if it is installed, otherwise Segoe UI (on every Windows PC).
     // Later, FontManager can load Inter from resources/fonts so it works everywhere.

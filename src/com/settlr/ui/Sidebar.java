@@ -46,7 +46,7 @@ public class Sidebar extends JPanel {
         brand.add(name);
         add(brand);
 
-        // "Ana  •  Room 4B"
+        // "Ana  \u2022  Room 4B"
         userLabel.setFont(Theme.font(Font.PLAIN, 11));
         userLabel.setForeground(Theme.MUTED_TEXT);
         userLabel.setBorder(new EmptyBorder(4, 2, 0, 0));
@@ -85,7 +85,7 @@ public class Sidebar extends JPanel {
         items.forEach((name, button) -> button.setSelected(name.equals(screenName)));
     }
 
-    /** Updates the "name  •  household" line from the Session. */
+    /** Updates the "name  \u2022  household" line from the Session. */
     public void refreshUser() {
         User user = Session.getInstance().getCurrentUser();
         Household household = Session.getInstance().getCurrentHousehold();
@@ -94,7 +94,7 @@ public class Sidebar extends JPanel {
         } else if (household == null) {
             userLabel.setText(user.getDisplayName());
         } else {
-            userLabel.setText(user.getDisplayName() + "  •  " + household.getName());
+            userLabel.setText(user.getDisplayName() + "  \u2022  " + household.getName());
         }
     }
 
