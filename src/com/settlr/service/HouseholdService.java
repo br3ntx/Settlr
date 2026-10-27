@@ -8,6 +8,7 @@ import com.settlr.exception.NotFoundException;
 import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
 import com.settlr.exception.ValidationException;
+import com.settlr.model.ActivityType;
 import com.settlr.model.Household;
 import com.settlr.model.Membership;
 import com.settlr.model.Role;
@@ -29,6 +30,7 @@ public class HouseholdService {
 
     private final HouseholdDao householdDao = new HouseholdDao();
     private final MembershipDao membershipDao = new MembershipDao();
+    private final ActivityService activityService = new ActivityService();
 
     /** Creates a household with the current user as Admin and stores it in the Session. */
     public Household create(String name) throws SettlrException {
@@ -51,6 +53,7 @@ public class HouseholdService {
                 LocalDateTime.now(), true));
 
         Session.getInstance().setHousehold(household, Role.ADMIN);
+        logMemberJoined(user, user.getDisplayName() + " created " + household.getName());
         return household;
     }
 
@@ -77,6 +80,7 @@ public class HouseholdService {
                 LocalDateTime.now(), true));
 
         Session.getInstance().setHousehold(household, Role.MEMBER);
+        logMemberJoined(user, user.getDisplayName() + " joined the household");
         return household;
     }
 
@@ -158,6 +162,19 @@ public class HouseholdService {
             throw new NotFoundException("You aren't in a household yet.");
         }
         return household;
+    }
+
+    /**
+     * Adds a "joined" entry to the activity feed (master doc 3.8).
+     * The user is already in the household at this point, so if only the
+     * feed entry fails we print it instead of reporting the join as failed.
+     */
+    private void logMemberJoined(User user, String message) {
+        try {
+            activityService.log(ActivityType.MEMBER_JOINED, user.getId(), message);
+        } catch (SettlrException e) {
+            System.err.println("Couldn't add the activity feed entry: " + e.getMessage());
+        }
     }
 
     /** A user belongs to one household at a time. */

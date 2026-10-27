@@ -1,18 +1,25 @@
 package com.settlr.ui.screens;
 
+import com.settlr.exception.DataAccessException;
+import com.settlr.exception.SettlrException;
 import com.settlr.model.Household;
+import com.settlr.service.AuthService;
+import com.settlr.service.HouseholdService;
+import com.settlr.ui.BaseScreen;
+import com.settlr.ui.Navigator;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.StyledTextField;
-import com.settlr.ui.BaseScreen;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 /**
  * Household Setup screen: two side-by-side cards, "Create a household" and
- * "Join a household". PREVIEW ONLY: it validates input and shows messages,
- * but saves nothing and talks to no database.
+ * "Join a household". Shown after login to anyone who isn't in a household yet.
+ * HouseholdService does the saving; on success the user goes to Home.
  */
 public class HouseholdSetupScreen extends BaseScreen {
 
@@ -20,6 +27,7 @@ public class HouseholdSetupScreen extends BaseScreen {
     private final StyledTextField codeField = new StyledTextField("6-character invite code");
     private final JLabel createError = errorLabel();
     private final JLabel joinError = errorLabel();
+    private final HouseholdService householdService = new HouseholdService();
 
     public HouseholdSetupScreen() {
         setBackground(Theme.BACKGROUND);
@@ -43,38 +51,94 @@ public class HouseholdSetupScreen extends BaseScreen {
         content.add(title);
         content.add(Box.createVerticalStrut(24));
         content.add(cards);
+        content.add(Box.createVerticalStrut(20));
+        JPanel logOutRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        logOutRow.setOpaque(false);
+        logOutRow.add(logOutLink());
+        logOutRow.setAlignmentX(Component.CENTER_ALIGNMENT);
+        content.add(logOutRow);
 
         add(content, new GridBagConstraints());
     }
 
-    // ---------- Actions (validation only, nothing is saved) ----------
+    // ---------- Actions ----------
 
     private void onCreate() {
         String name = nameField.getText().trim();
         if (name.isEmpty()) {
             showError(createError, nameField, "Please enter a household name.");
-        } else if (name.length() > Household.MAX_NAME_LENGTH) {
+            return;
+        }
+        if (name.length() > Household.MAX_NAME_LENGTH) {
             showError(createError, nameField, "Name is too long (max 60 characters).");
-        } else {
-            createError.setText(" ");
-            JOptionPane.showMessageDialog(this,
-                    "Created! (Preview only: nothing was saved yet.)",
-                    "Create a household", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        createError.setText(" ");
+        try {
+            Household household = householdService.create(name); // you become the Admin
+            showInviteCode(household);
+            Navigator.getInstance().show(Navigator.DASHBOARD);
+        } catch (DataAccessException e) {
+            showError(createError, nameField, "Can't reach the database. Is MySQL running?");
+            e.printStackTrace();
+        } catch (SettlrException e) {
+            showError(createError, nameField, e.getMessage());
         }
     }
 
     private void onJoin() {
-        String code = codeField.getText().trim();
+        String code = codeField.getText().trim().toUpperCase(); // "abc234" works too
         if (code.length() != Household.INVITE_CODE_LENGTH) {
             showError(joinError, codeField, "Invite codes are exactly 6 characters.");
-        } else if (!Household.isValidInviteCode(code)) {
-            showError(joinError, codeField, "Use capital letters A-Z (no I or O) and digits 2-9.");
-        } else {
-            joinError.setText(" ");
-            JOptionPane.showMessageDialog(this,
-                    "Joined! (Preview only: no household was looked up.)",
-                    "Join a household", JOptionPane.INFORMATION_MESSAGE);
+            return;
         }
+        if (!Household.isValidInviteCode(code)) {
+            showError(joinError, codeField, "Use letters A-Z (no I or O) and digits 2-9.");
+            return;
+        }
+        joinError.setText(" ");
+        try {
+            householdService.join(code);
+            Navigator.getInstance().show(Navigator.DASHBOARD);
+        } catch (DataAccessException e) {
+            showError(joinError, codeField, "Can't reach the database. Is MySQL running?");
+            e.printStackTrace();
+        } catch (SettlrException e) {
+            showError(joinError, codeField, e.getMessage()); // e.g. "That invite code doesn't match any household."
+        }
+    }
+
+    /**
+     * The new Admin needs the code to invite roommates. The Household settings
+     * screen will show it later; until then this is the only place it appears.
+     * The code is in a read-only text field so it can be selected and copied.
+     */
+    private void showInviteCode(Household household) {
+        JTextField code = new JTextField(household.getInviteCode());
+        code.setEditable(false);
+        code.setFont(Theme.font(Font.BOLD, 22));
+        code.setHorizontalAlignment(JTextField.CENTER);
+        Object[] message = {
+                household.getName() + " is ready! Send this invite code to your roommates:",
+                code
+        };
+        JOptionPane.showMessageDialog(this, message, "Household created", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    /** Without the sidebar there is no other way out of this screen. */
+    private JLabel logOutLink() {
+        JLabel link = new JLabel("<html><u>Not you? Log out</u></html>");
+        link.setFont(Theme.font(Font.PLAIN, 13));
+        link.setForeground(Theme.MUTED_TEXT);
+        link.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        link.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                new AuthService().logout();
+                Navigator.getInstance().show(Navigator.LOGIN);
+            }
+        });
+        return link;
     }
 
     /** Shows the message, then puts the cursor back in the field with its text selected for quick retyping. */
@@ -137,7 +201,11 @@ public class HouseholdSetupScreen extends BaseScreen {
 
     @Override
     public void onShow() {
-        // Nothing to load yet; clear old input here once the form is connected
+        // Start clean, e.g. after someone else logged out on this computer
+        nameField.setText("");
+        codeField.setText("");
+        createError.setText(" ");
+        joinError.setText(" ");
     }
 
     @Override
