@@ -13,7 +13,7 @@ public class RoundedBorder extends AbstractBorder {
     private Color color;
     private final int thickness;
     private int arc;              // how round the corners are (bigger than the height = pill)
-    private final Insets padding; // space between the outline and the text
+    private Insets padding;       // space between the outline and the text
 
     public RoundedBorder(Color color, int thickness, int arc, Insets padding) {
         this.color = color;
@@ -24,6 +24,11 @@ public class RoundedBorder extends AbstractBorder {
 
     public void setColor(Color color) {
         this.color = color;
+    }
+
+    /** Changes the space inside the outline, e.g. extra room on the right for an icon. */
+    public void setPadding(Insets padding) {
+        this.padding = padding;
     }
 
     public int getArc() {

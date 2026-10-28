@@ -86,6 +86,7 @@ public class LoginScreen extends AuthScreen {
         // Shown at startup and after log out: start with an empty form
         usernameField.setText("");
         passwordField.setText("");
+        passwordField.setPasswordVisible(false);
         clearMessage();
         SwingUtilities.invokeLater(usernameField::requestFocusInWindow);
     }

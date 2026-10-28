@@ -77,6 +77,8 @@ public class RegisterScreen extends AuthScreen {
         displayNameField.setText("");
         passwordField.setText("");
         confirmField.setText("");
+        passwordField.setPasswordVisible(false);
+        confirmField.setPasswordVisible(false);
         clearMessage();
         SwingUtilities.invokeLater(usernameField::requestFocusInWindow);
     }
