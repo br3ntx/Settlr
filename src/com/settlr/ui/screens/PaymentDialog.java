@@ -21,7 +21,7 @@ import java.util.List;
  * "Settle Up" dialog (master doc section 5): lists the unsettled shares the current user owes
  * ONE person, with checkboxes and a live total. Record Payment creates PENDING payments, so
  * the wording always says the payment still needs the receiver's confirmation. Confirming and
- * rejecting are done on BalancesScreen. There is no amount field: a payment always covers a
+ * rejecting are done on ExpensesScreen. There is no amount field: a payment always covers a
  * whole share (the schema has no partial payments).
  */
 public class PaymentDialog extends JDialog {
@@ -123,7 +123,7 @@ public class PaymentDialog extends JDialog {
         setLocationRelativeTo(owner);
     }
 
-    /** True if Record Payment succeeded; BalancesScreen uses it to decide what message to show. */
+    /** True if Record Payment succeeded; ExpensesScreen uses it to decide what message to show. */
     public boolean wasPaymentRecorded() {
         return paymentRecorded;
     }

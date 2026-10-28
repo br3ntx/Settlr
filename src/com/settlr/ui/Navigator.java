@@ -23,7 +23,6 @@ public final class Navigator {
     public static final String DASHBOARD = "dashboard";
     public static final String TASKS = "tasks";
     public static final String EXPENSES = "expenses";
-    public static final String BALANCES = "balances";
     public static final String LEADERBOARD = "leaderboard";
     public static final String ACTIVITY = "activity";
     public static final String SETTINGS = "settings";

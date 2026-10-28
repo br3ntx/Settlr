@@ -131,6 +131,21 @@ public class ExpenseShareDao implements Dao<ExpenseShare> {
         }
     }
 
+    /** Every share (paid or not) of every expense in this household, for "your share" on the Expenses page. */
+    public List<ExpenseShare> findByHousehold(int householdId) throws DataAccessException {
+        String sql = "SELECT s.share_id, s.expense_id, s.user_id, s.amount_owed, s.settled_at "
+                + "FROM expense_shares s JOIN expenses e ON e.expense_id = s.expense_id "
+                + "WHERE e.household_id = ? "
+                + "ORDER BY s.expense_id, s.share_id";
+        try (Connection con = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, householdId);
+            return readAll(ps);
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not load the expense shares.", ex);
+        }
+    }
+
     // ---------- private helpers ----------
 
     private List<ExpenseShare> query(String sql, int first, int second) throws DataAccessException {

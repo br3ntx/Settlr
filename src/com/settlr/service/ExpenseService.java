@@ -27,8 +27,11 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -125,6 +128,17 @@ public class ExpenseService {
         requireLoggedIn();
         return expenseDao.findByHousehold(
                 Session.getInstance().getCurrentHousehold().getId(), filterOrNull);
+    }
+
+    /** Each expense's shares, keyed by expense id (the Expenses page shows "your share" from this). */
+    public Map<Integer, List<ExpenseShare>> getSharesByExpense() throws SettlrException {
+        requireLoggedIn();
+        Map<Integer, List<ExpenseShare>> byExpense = new HashMap<>();
+        int householdId = Session.getInstance().getCurrentHousehold().getId();
+        for (ExpenseShare share : expenseShareDao.findByHousehold(householdId)) {
+            byExpense.computeIfAbsent(share.getExpenseId(), id -> new ArrayList<>()).add(share);
+        }
+        return byExpense;
     }
 
     /**

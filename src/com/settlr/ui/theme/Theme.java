@@ -32,6 +32,8 @@ public static final Color MUTED_TEXT    = new Color(0x8A9797); // placeholders, 
 public static final Color MINT          = new Color(0x5FD0B0);
 public static final Color MINT_DARK     = new Color(0x4FB89A); // hovered/pressed
 public static final Color ON_MINT       = new Color(0x173030); // text on mint
+public static final Color AMBER         = new Color(0xC9A46E); // "WAITING FOR YOU" label
+public static final Color BANNER        = new Color(0x3C4741); // waiting-payment banner
 public static final Color OVERLAY       = new Color(10, 18, 18, 165); // dims the app behind a popup
 
     // ---- Glass card (Figma: inner shadow, inner glow, light edge) ----
