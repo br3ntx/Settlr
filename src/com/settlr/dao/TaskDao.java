@@ -1,8 +1,7 @@
 package com.settlr.dao;
 
 import com.settlr.exception.DataAccessException;
-import com.settlr.model.OneTimeTask;
-import com.settlr.model.Recurrence;
+import com.settlr.factory.TaskCreator;
 import com.settlr.model.RecurringTask;
 import com.settlr.model.Task;
 import com.settlr.util.DBConnection;
@@ -12,7 +11,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -178,26 +176,11 @@ public class TaskDao implements Dao<Task> {
         }
     }
 
-    /** Builds the right subclass from task_type. */
+    /**
+     * Turns one row into a OneTimeTask or a RecurringTask. Which class to build is
+     * decided by a TaskCreator subclass (Factory Method pattern, see com.settlr.factory).
+     */
     private Task mapRow(ResultSet rs) throws SQLException {
-        String title = rs.getString("title");
-        String description = rs.getString("description");
-        int points = rs.getInt("points");
-        LocalDateTime firstDueAt = rs.getObject("first_due_at", LocalDateTime.class);
-        int assigneeId = rs.getInt("default_assignee_id");
-
-        Task task;
-        if (RECURRING.equals(rs.getString("task_type"))) {
-            Recurrence recurrence = Recurrence.valueOf(rs.getString("recurrence"));
-            task = new RecurringTask(title, description, points, firstDueAt, assigneeId,
-                                     recurrence, rs.getBoolean("rotates"));
-        } else {
-            task = new OneTimeTask(title, description, points, firstDueAt, assigneeId);
-        }
-        task.setId(rs.getInt("task_id"));
-        task.setHouseholdId(rs.getInt("household_id"));
-        task.setCreatedBy(rs.getInt("created_by"));
-        task.setArchived(rs.getBoolean("is_archived"));
-        return task;
+        return TaskCreator.forType(rs.getString("task_type")).fromRow(rs);
     }
 }
