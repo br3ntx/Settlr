@@ -10,6 +10,7 @@ import com.settlr.model.Household;
 import com.settlr.model.User;
 import com.settlr.service.ExpenseService;
 import com.settlr.split.EqualSplit;
+import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.DatePickerField;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.MemberChip;
@@ -25,12 +26,6 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -46,20 +41,14 @@ import java.util.List;
  *     ExpenseFormDialog.open(this, () -> reload());
  * The second argument runs after a successful save, so the screen can refresh.
  *
- * It is drawn inside the main window (on the window's modal layer), not as a
- * separate window, so the rounded corners and the dimmed background work on every PC,
- * and dropdown lists and the calendar still open on top of it.
+ * The dimming, Esc-to-close and placement come from the ModalPopup parent class.
  */
-public class ExpenseFormDialog extends JPanel {
+public class ExpenseFormDialog extends ModalPopup {
 
     private static final int FORM_WIDTH = 330;  // width of everything inside the card
     private static final int HALF = (FORM_WIDTH - 12) / 2;
     private static final int FIELD_HEIGHT = 34;
 
-    private final JLayeredPane layers;
-    private final ComponentAdapter resizer = new ComponentAdapter() {
-        @Override public void componentResized(ComponentEvent e) { fitToWindow(); }
-    };
     private final Runnable onSaved;
     private final ExpenseService expenseService = new ExpenseService();
 
@@ -76,10 +65,6 @@ public class ExpenseFormDialog extends JPanel {
 
     /** Opens the popup over the window that contains anyComponent. */
     public static void open(Component anyComponent, Runnable onSaved) {
-        JRootPane root = SwingUtilities.getRootPane(anyComponent);
-        if (root == null) {
-            throw new IllegalStateException("Open the popup from a component that is inside a window.");
-        }
         List<User> members;
         try {
             Household household = Session.getInstance().getCurrentHousehold();
@@ -92,49 +77,21 @@ public class ExpenseFormDialog extends JPanel {
             JOptionPane.showMessageDialog(anyComponent, "Can't load your household members: " + e.getMessage());
             return;
         }
-        ExpenseFormDialog popup = new ExpenseFormDialog(root.getLayeredPane(), members, onSaved);
-        popup.layers.add(popup, JLayeredPane.MODAL_LAYER); // above the screens, below dropdown lists
-        popup.layers.addComponentListener(popup.resizer);
-        popup.fitToWindow();
+        ExpenseFormDialog popup = new ExpenseFormDialog(members, onSaved);
+        popup.showOver(anyComponent);
         SwingUtilities.invokeLater(popup.titleField::requestFocusInWindow);
     }
 
-    private ExpenseFormDialog(JLayeredPane layers, List<User> members, Runnable onSaved) {
-        this.layers = layers;
+    private ExpenseFormDialog(List<User> members, Runnable onSaved) {
         this.onSaved = onSaved;
         this.members = members;
         this.paidByBox = new StyledComboBox<>(members, User::getDisplayName);
-
-        setOpaque(false); // paintComponent draws the dim layer
-        setLayout(new GridBagLayout()); // centers the card
-        setFocusCycleRoot(true); // Tab stays inside the popup
-        // Swallow clicks on the dimmed area so nothing behind the popup reacts
-        addMouseListener(new MouseAdapter() { });
-        addMouseMotionListener(new MouseAdapter() { });
 
         add(buildCard());
         selectCurrentUserAsPayer();
         wireUpLivePreview();
         updatePreview();
 
-        // Esc closes, like any popup
-        getInputMap(WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
-                .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "close");
-        getActionMap().put("close", new AbstractAction() {
-            @Override public void actionPerformed(ActionEvent e) { close(); }
-        });
-    }
-
-    private void fitToWindow() {
-        setBounds(0, 0, layers.getWidth(), layers.getHeight());
-        revalidate();
-        repaint();
-    }
-
-    @Override
-    protected void paintComponent(Graphics g) {
-        g.setColor(Theme.OVERLAY);
-        g.fillRect(0, 0, getWidth(), getHeight());
     }
 
     // ---------- layout ----------
@@ -150,7 +107,7 @@ public class ExpenseFormDialog extends JPanel {
         title.setFont(Theme.font(Font.BOLD, 22));
         title.setForeground(Theme.TEXT);
         header.add(title, BorderLayout.WEST);
-        header.add(closeButton(), BorderLayout.EAST);
+        header.add(createCloseButton(), BorderLayout.EAST);
         row(card, header, 0, 30);
 
         row(card, label("Title"), 10, 16);
@@ -240,36 +197,6 @@ public class ExpenseFormDialog extends JPanel {
         StyledTextField.usePillStyle(f);
         f.setFont(Theme.font(Font.PLAIN, 12));
         return f;
-    }
-
-    /** An X drawn with two lines (the X character is missing from some fonts). */
-    private JButton closeButton() {
-        JButton x = new JButton() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getForeground());
-                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                int cx = getWidth() / 2, cy = getHeight() / 2, r = 6;
-                g2.drawLine(cx - r, cy - r, cx + r, cy + r);
-                g2.drawLine(cx - r, cy + r, cx + r, cy - r);
-                g2.dispose();
-            }
-        };
-        x.setPreferredSize(new Dimension(30, 30));
-        x.setForeground(Theme.MUTED_TEXT);
-        x.setContentAreaFilled(false);
-        x.setBorderPainted(false);
-        x.setFocusPainted(false);
-        x.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        x.setToolTipText("Close");
-        x.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { x.setForeground(Theme.TEXT); }
-            @Override public void mouseExited(MouseEvent e) { x.setForeground(Theme.MUTED_TEXT); }
-        });
-        x.addActionListener(e -> close());
-        return x;
     }
 
     private void selectCurrentUserAsPayer() {
@@ -399,11 +326,4 @@ public class ExpenseFormDialog extends JPanel {
         errorLabel.setText(message);
     }
 
-    /** Removes the popup from the window. */
-    public void close() {
-        layers.removeComponentListener(resizer);
-        layers.remove(this);
-        layers.revalidate();
-        layers.repaint();
-    }
 }

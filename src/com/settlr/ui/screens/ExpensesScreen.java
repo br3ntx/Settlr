@@ -37,12 +37,14 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Expenses page (Figma "EXPENSES"). Also does everything the old Balances page did:
- * totals at the top, payments waiting for you to confirm, who owes whom with Settle Up,
- * and the list of shared expenses with "+ Add expenses".
+ * Expenses page with two tabs (layout option C):
+ *   - Expenses: category chips, the list of shared expenses with "your share", and "+ Add expenses".
+ *   - Balances: payments waiting for you to confirm, and who owes whom with Settle Up.
+ * The "You owe" / "Owed to you" totals sit on the tab row so they show on both tabs, and
+ * the Balances tab shows a red badge with the number of payments waiting for you.
  *
- * Balance and payment logic comes from Keith's BalanceService, PaymentService and
- * PaymentDialog; this screen only shows it.
+ * Balance and payment logic comes from Keith's BalanceService and PaymentService;
+ * this screen and PaymentDialog only show it.
  */
 public class ExpensesScreen extends BaseScreen {
 
@@ -76,6 +78,8 @@ public class ExpensesScreen extends BaseScreen {
     private static final DateTimeFormatter DUE = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
     private static final String DOT = " \u2022 ";
     private static final Color DIVIDER = new Color(232, 217, 205, 60);
+    private static final String EXPENSES_TAB = "expenses";
+    private static final String BALANCES_TAB = "balances";
 
     private final ExpenseService expenseService = new ExpenseService();
     private final BalanceService balanceService = new BalanceService();
@@ -89,16 +93,25 @@ public class ExpensesScreen extends BaseScreen {
     private Filter filter = Filter.ALL;
 
     private final JLabel subtitle = new JLabel(" ");
+    private final JLabel messageLabel = new JLabel(" ");
     private final StatPill owePill = new StatPill("You owe", Theme.DANGER);
     private final StatPill owedPill = new StatPill("Owed to you", Theme.MINT);
-    private final JLabel messageLabel = new JLabel(" ");
-    private final JPanel waitingPanel = verticalPanel();
-    private final RowList expenseRows = new RowList();
-    private final JPanel owesRows = verticalPanel();
-    private final JPanel columns = new JPanel(new GridBagLayout());
+    private final Tab expensesTab = new Tab("Expenses");
+    private final Tab balancesTab = new Tab("Balances");
+    private final CardLayout tabCards = new CardLayout();
+    private final JPanel tabContent = new JPanel(tabCards);
+
+    // Expenses tab
+    private final JPanel expensesPage = new JPanel(new GridBagLayout());
     private final JPanel chipsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-    private final JPanel addRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+    private final RowList expenseRows = new RowList();
+    private final JPanel addRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
     private GlassCard listCard;
+
+    // Balances tab
+    private final JPanel waitingRows = verticalPanel();
+    private final JPanel owesRows = verticalPanel();
+    private GlassCard waitingCard;
 
     public ExpensesScreen() {
         setBackground(Theme.BACKGROUND);
@@ -106,7 +119,11 @@ public class ExpensesScreen extends BaseScreen {
         setBorder(new EmptyBorder(26, 40, 20, 40));
 
         add(buildTop(), BorderLayout.NORTH);
-        add(buildColumns(), BorderLayout.CENTER);
+        tabContent.setOpaque(false);
+        tabContent.add(buildExpensesTab(), EXPENSES_TAB);
+        tabContent.add(buildBalancesTab(), BALANCES_TAB);
+        add(tabContent, BorderLayout.CENTER);
+        showTab(EXPENSES_TAB);
     }
 
     // =====================================================================
@@ -119,36 +136,55 @@ public class ExpensesScreen extends BaseScreen {
         title.setForeground(Theme.PRIMARY);
         subtitle.setFont(Theme.font(Font.PLAIN, 12));
         subtitle.setForeground(Theme.MUTED_TEXT);
+        messageLabel.setFont(Theme.font(Font.PLAIN, 12));
+        messageLabel.setBorder(new EmptyBorder(2, 2, 2, 0));
 
-        JPanel titles = verticalPanel();
-        titles.add(left(title));
-        titles.add(left(subtitle));
+        expensesTab.addMouseListener(clickTo(() -> showTab(EXPENSES_TAB)));
+        balancesTab.addMouseListener(clickTo(() -> showTab(BALANCES_TAB)));
+        JPanel tabs = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        tabs.setOpaque(false);
+        tabs.add(expensesTab);
+        tabs.add(Box.createHorizontalStrut(22));
+        tabs.add(balancesTab);
 
-        JPanel pills = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
+        JPanel pills = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         pills.setOpaque(false);
         pills.add(owePill);
         pills.add(owedPill);
 
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
-        header.add(titles, BorderLayout.WEST);
-        header.add(pills, BorderLayout.EAST);
-
-        messageLabel.setFont(Theme.font(Font.PLAIN, 12));
-        messageLabel.setBorder(new EmptyBorder(2, 2, 2, 0));
+        JPanel tabRow = new JPanel(new BorderLayout());
+        tabRow.setOpaque(false);
+        tabRow.add(tabs, BorderLayout.WEST);
+        tabRow.add(pills, BorderLayout.EAST);
 
         JPanel top = verticalPanel();
-        top.add(left(header));
+        top.add(left(title));
+        top.add(left(subtitle));
         top.add(left(messageLabel));
-        top.add(left(waitingPanel));
-        top.add(Box.createVerticalStrut(10));
+        top.add(Box.createVerticalStrut(4));
+        top.add(left(tabRow));
+        top.add(Box.createVerticalStrut(14));
         return top;
     }
 
-    private JPanel buildColumns() {
-        columns.setOpaque(false);
+    private static MouseAdapter clickTo(Runnable action) {
+        return new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                action.run();
+            }
+        };
+    }
 
-        // ----- left: chips, list card, add button -----
+    private void showTab(String name) {
+        tabCards.show(tabContent, name);
+        expensesTab.setSelected(EXPENSES_TAB.equals(name));
+        balancesTab.setSelected(BALANCES_TAB.equals(name));
+    }
+
+    private JPanel buildExpensesTab() {
+        expensesPage.setOpaque(false);
+
         chipsRow.setOpaque(false);
         ButtonGroup group = new ButtonGroup();
         for (Filter f : Filter.values()) {
@@ -161,18 +197,12 @@ public class ExpensesScreen extends BaseScreen {
             chipsRow.add(chip);
         }
 
-        JScrollPane scroll = new JScrollPane(expenseRows,
-                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scroll.setBorder(null);
-        scroll.setOpaque(false);
-        scroll.getViewport().setOpaque(false);
-        scroll.getVerticalScrollBar().setUnitIncrement(16);
-
+        JScrollPane scroll = transparentScroll(expenseRows);
         listCard = new GlassCard(new BorderLayout()) {
             @Override
             public Dimension getPreferredSize() {
                 Dimension d = super.getPreferredSize();
-                return new Dimension(d.width, Math.min(d.height, maxListHeight()));
+                return new Dimension(1, Math.min(d.height, maxListHeight()));
             }
         };
         listCard.setBorder(new EmptyBorder(6, 18, 6, 14));
@@ -189,68 +219,76 @@ public class ExpensesScreen extends BaseScreen {
         addRow.setOpaque(false);
         addRow.add(add);
 
-        JPanel leftColumn = new JPanel() {
-            @Override
-            public Dimension getPreferredSize() { // width comes from the GridBag weights
-                return new Dimension(1, super.getPreferredSize().height);
-            }
-        };
-        leftColumn.setOpaque(false);
-        leftColumn.setLayout(new BoxLayout(leftColumn, BoxLayout.Y_AXIS));
-        leftColumn.add(left(chipsRow));
-        leftColumn.add(Box.createVerticalStrut(10));
-        leftColumn.add(left(listCard));
-        leftColumn.add(Box.createVerticalStrut(12));
-        leftColumn.add(left(addRow));
-
-        // ----- right: who owes whom -----
-        GlassCard owesCard = new GlassCard(new BorderLayout(0, 6)) {
-            @Override
-            public Dimension getPreferredSize() {
-                return new Dimension(1, super.getPreferredSize().height);
-            }
-        };
-        owesCard.setBorder(new EmptyBorder(14, 18, 12, 18));
-        JLabel owesTitle = new JLabel("Who owes whom");
-        owesTitle.setFont(Theme.font(Font.BOLD, 15));
-        owesTitle.setForeground(Theme.TEXT);
-        owesCard.add(owesTitle, BorderLayout.NORTH);
-        owesCard.add(owesRows, BorderLayout.CENTER);
-
         GridBagConstraints c = new GridBagConstraints();
-        c.gridy = 0;
-        c.anchor = GridBagConstraints.NORTH;
+        c.gridx = 0;
+        c.weightx = 1;
         c.fill = GridBagConstraints.HORIZONTAL;
-        c.gridx = 0;
-        c.weightx = 0.57;
-        c.insets = new Insets(0, 0, 0, 16);
-        columns.add(leftColumn, c);
-        c.gridx = 1;
-        c.weightx = 0.43;
-        c.insets = new Insets(36, 0, 0, 0); // lines up with the list card, below the chips
-        columns.add(owesCard, c);
-        c.gridx = 0;
+        c.anchor = GridBagConstraints.NORTH;
+        c.gridy = 0;
+        expensesPage.add(chipsRow, c);
         c.gridy = 1;
+        c.insets = new Insets(10, 0, 0, 0);
+        expensesPage.add(listCard, c);
+        c.gridy = 2;
+        c.insets = new Insets(12, 0, 0, 0);
+        expensesPage.add(addRow, c);
+        c.gridy = 3;
         c.weighty = 1;
-        c.gridwidth = 2;
-        c.fill = GridBagConstraints.BOTH;
-        columns.add(Box.createGlue(), c);
+        c.insets = new Insets(0, 0, 0, 0);
+        expensesPage.add(Box.createGlue(), c);
 
         // When the window is resized, the list card may grow or shrink
-        columns.addComponentListener(new ComponentAdapter() {
+        expensesPage.addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
                 listCard.revalidate();
             }
         });
-        return columns;
+        return expensesPage;
     }
 
     /** The list card grows with its rows until it would push "Add expenses" off the screen; then it scrolls. */
     private int maxListHeight() {
-        int available = columns.getHeight() - chipsRow.getPreferredSize().height
+        int available = expensesPage.getHeight() - chipsRow.getPreferredSize().height
                 - addRow.getPreferredSize().height - 10 - 12 - 4;
         return available > 120 ? available : 340;
+    }
+
+    private JComponent buildBalancesTab() {
+        waitingCard = new GlassCard(new BorderLayout(0, 4));
+        waitingCard.setBorder(new EmptyBorder(14, 20, 10, 20));
+        waitingCard.add(label("WAITING FOR YOU", Font.BOLD, 12, Theme.AMBER), BorderLayout.NORTH);
+        waitingCard.add(waitingRows, BorderLayout.CENTER);
+
+        GlassCard owesCard = new GlassCard(new BorderLayout(0, 4));
+        owesCard.setBorder(new EmptyBorder(14, 20, 10, 20));
+        JPanel owesTitle = verticalPanel();
+        owesTitle.add(left(label("Who owes whom", Font.BOLD, 15, Theme.TEXT)));
+        owesTitle.add(left(label("Amounts are net: what you owe each other cancels out.",
+                Font.PLAIN, 11, Theme.MUTED_TEXT)));
+        owesCard.add(owesTitle, BorderLayout.NORTH);
+        owesCard.add(owesRows, BorderLayout.CENTER);
+
+        JPanel page = verticalPanel();
+        page.add(left(waitingCard));
+        page.add(Box.createVerticalStrut(14));
+        page.add(left(owesCard));
+        page.add(Box.createVerticalGlue());
+
+        JPanel holder = new JPanel(new BorderLayout()); // keeps the cards at the top, full width
+        holder.setOpaque(false);
+        holder.add(page, BorderLayout.NORTH);
+        return transparentScroll(holder);
+    }
+
+    private static JScrollPane transparentScroll(JComponent view) {
+        JScrollPane scroll = new JScrollPane(view,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.getVerticalScrollBar().setUnitIncrement(16);
+        return scroll;
     }
 
     // =====================================================================
@@ -312,9 +350,7 @@ public class ExpensesScreen extends BaseScreen {
             String text = filter == Filter.ALL
                     ? "No expenses yet. Add the first one!"
                     : "No " + filter.label.toLowerCase() + " expenses yet.";
-            JLabel empty = new JLabel(text);
-            empty.setFont(Theme.font(Font.PLAIN, 13));
-            empty.setForeground(Theme.MUTED_TEXT);
+            JLabel empty = label(text, Font.PLAIN, 13, Theme.MUTED_TEXT);
             empty.setBorder(new EmptyBorder(14, 2, 14, 0));
             expenseRows.add(left(empty));
         }
@@ -347,15 +383,19 @@ public class ExpensesScreen extends BaseScreen {
     }
 
     private void loadWaitingPayments() {
-        waitingPanel.removeAll();
+        waitingRows.removeAll();
+        int count = 0;
         try {
-            for (BalanceService.PaymentRow row : balanceService.getIncomingPaymentRows()) {
-                waitingPanel.add(Box.createVerticalStrut(6));
-                waitingPanel.add(left(new WaitingBanner(row)));
+            List<BalanceService.PaymentRow> rows = balanceService.getIncomingPaymentRows();
+            count = rows.size();
+            for (int i = 0; i < rows.size(); i++) {
+                waitingRows.add(left(new WaitingRow(rows.get(i), i < rows.size() - 1)));
             }
         } catch (SettlrException e) {
             showMessage(e.getMessage(), true);
         }
+        waitingCard.setVisible(count > 0); // nothing to confirm = no card
+        balancesTab.setBadge(count);
     }
 
     // =====================================================================
@@ -363,13 +403,11 @@ public class ExpensesScreen extends BaseScreen {
     // =====================================================================
 
     private void onSettleUp(Balance b) {
-        Window owner = SwingUtilities.getWindowAncestor(this);
-        boolean recorded = PaymentDialog.showFor(owner, b.getOtherUser());
-        reload();
-        if (recorded) {
-            showMessage("Payment sent to " + b.getOtherUser().getDisplayName()
-                    + ". It counts once they confirm it.", false);
-        }
+        String name = b.getOtherUser().getDisplayName();
+        PaymentDialog.open(this, b.getOtherUser(), () -> {
+            reload();
+            showMessage("Payment sent to " + name + ". It counts once " + name + " confirms it.", false);
+        });
     }
 
     private void onConfirm(BalanceService.PaymentRow row) {
@@ -555,58 +593,6 @@ public class ExpensesScreen extends BaseScreen {
         }
     }
 
-    /** "WAITING FOR YOU  Ana paid P2,400.00 for Rent | 3d ago ...   Reject [Confirm]" */
-    private class WaitingBanner extends JPanel {
-        WaitingBanner(BalanceService.PaymentRow row) {
-            setOpaque(false);
-            setLayout(new BorderLayout(10, 0));
-            setBorder(new EmptyBorder(8, 18, 8, 10));
-
-            JPanel text = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-            text.setOpaque(false);
-            text.add(label("WAITING FOR YOU", Font.BOLD, 12, Theme.AMBER));
-            text.add(label(row.getFromUserName() + " paid " + MoneyUtil.format(row.getAmount())
-                    + " for " + row.getExpenseTitle(), Font.BOLD, 13, Theme.TEXT));
-            text.add(label(DateTimeUtil.timeAgo(row.getPaidAt()) + DOT + "only counts once you confirm",
-                    Font.PLAIN, 11, Theme.MUTED_TEXT));
-
-            JLabel reject = label("Reject", Font.BOLD, 12, Theme.DANGER);
-            reject.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            reject.addMouseListener(new MouseAdapter() {
-                @Override public void mouseClicked(MouseEvent e) { onReject(row); }
-                @Override public void mouseEntered(MouseEvent e) { reject.setText("<html><u>Reject</u></html>"); }
-                @Override public void mouseExited(MouseEvent e) { reject.setText("Reject"); }
-            });
-            RoundedButton confirm = new RoundedButton("Confirm");
-            confirm.setArc(RoundedButton.PILL);
-            confirm.setFont(Theme.font(Font.BOLD, 11));
-            confirm.setMargin(new Insets(0, 0, 0, 0));
-            confirm.setPreferredSize(new Dimension(80, 26));
-            confirm.addActionListener(e -> onConfirm(row));
-
-            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
-            actions.setOpaque(false);
-            actions.add(reject);
-            actions.add(confirm);
-
-            add(text, BorderLayout.CENTER);
-            add(actions, BorderLayout.EAST);
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height));
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Shape bar = new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1f, getHeight() - 1f, 16, 16);
-            g2.setColor(Theme.BANNER);
-            g2.fill(bar);
-            g2.setColor(Theme.GLASS_EDGE);
-            g2.draw(bar);
-            g2.dispose();
-        }
-    }
-
     /** Outlined pill in the header: "You owe P375.00". */
     private static class StatPill extends JPanel {
         private final JLabel value;
@@ -718,5 +704,113 @@ public class ExpensesScreen extends BaseScreen {
         @Override public int getScrollableBlockIncrement(Rectangle r, int o, int d) { return r.height; }
         @Override public boolean getScrollableTracksViewportWidth() { return true; }
         @Override public boolean getScrollableTracksViewportHeight() { return false; }
+    }
+
+    /** One payment to confirm: "Carlo paid P2,400.00 for Rent / 3d ago | only counts once you confirm  Reject [Confirm]". */
+    private class WaitingRow extends JPanel {
+        private final boolean divider;
+
+        WaitingRow(BalanceService.PaymentRow row, boolean divider) {
+            this.divider = divider;
+            setOpaque(false);
+            setLayout(new BorderLayout(10, 0));
+            setBorder(new EmptyBorder(8, 0, 8, 0));
+
+            JPanel text = verticalPanel();
+            text.add(left(label(row.getFromUserName() + " paid " + MoneyUtil.format(row.getAmount())
+                    + " for " + row.getExpenseTitle(), Font.BOLD, 13, Theme.TEXT)));
+            text.add(left(label(DateTimeUtil.timeAgo(row.getPaidAt()) + DOT + "only counts once you confirm",
+                    Font.PLAIN, 11, Theme.MUTED_TEXT)));
+
+            JLabel reject = label("Reject", Font.BOLD, 12, Theme.DANGER);
+            reject.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            reject.addMouseListener(new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) { onReject(row); }
+                @Override public void mouseEntered(MouseEvent e) { reject.setText("<html><u>Reject</u></html>"); }
+                @Override public void mouseExited(MouseEvent e) { reject.setText("Reject"); }
+            });
+            RoundedButton confirm = new RoundedButton("Confirm");
+            confirm.setArc(RoundedButton.PILL);
+            confirm.setFont(Theme.font(Font.BOLD, 11));
+            confirm.setMargin(new Insets(0, 0, 0, 0));
+            confirm.setPreferredSize(new Dimension(80, 26));
+            confirm.addActionListener(e -> onConfirm(row));
+
+            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+            actions.setOpaque(false);
+            actions.add(reject);
+            actions.add(confirm);
+            JPanel holder = new JPanel(new GridBagLayout()); // centers the buttons vertically
+            holder.setOpaque(false);
+            holder.add(actions);
+
+            add(text, BorderLayout.CENTER);
+            add(holder, BorderLayout.EAST);
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            if (divider) {
+                paintDivider(g, this);
+            }
+        }
+    }
+
+    /** A tab title; the selected one is beige and underlined. Can show a red count badge. */
+    private static class Tab extends JComponent {
+        private final String text;
+        private boolean selected;
+        private int badge;
+
+        Tab(String text) {
+            this.text = text;
+            setFont(Theme.font(Font.BOLD, 15));
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            resize();
+        }
+
+        void setSelected(boolean selected) {
+            this.selected = selected;
+            repaint();
+        }
+
+        void setBadge(int count) {
+            badge = count;
+            resize();
+            revalidate();
+            repaint();
+        }
+
+        private void resize() {
+            int w = getFontMetrics(getFont()).stringWidth(text) + (badge > 0 ? 28 : 0);
+            setPreferredSize(new Dimension(w, 28));
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setFont(getFont());
+            FontMetrics fm = g2.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+            g2.setColor(selected ? Theme.PRIMARY : Theme.MUTED_TEXT);
+            g2.drawString(text, 0, fm.getAscent() + 2);
+            if (selected) {
+                g2.fillRect(0, getHeight() - 2, textWidth, 2);
+            }
+            if (badge > 0) {
+                String n = String.valueOf(badge);
+                g2.setFont(Theme.font(Font.BOLD, 11));
+                FontMetrics bm = g2.getFontMetrics();
+                int bw = Math.max(18, bm.stringWidth(n) + 10), bh = 18, bx = textWidth + 8, by = 3;
+                g2.setColor(Theme.DANGER);
+                g2.fill(new RoundRectangle2D.Float(bx, by, bw, bh, bh, bh));
+                g2.setColor(Color.WHITE);
+                g2.drawString(n, bx + (bw - bm.stringWidth(n)) / 2, by + (bh - bm.getHeight()) / 2 + bm.getAscent());
+            }
+            g2.dispose();
+        }
     }
 }
