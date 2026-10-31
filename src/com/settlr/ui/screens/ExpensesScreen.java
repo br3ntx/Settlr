@@ -29,6 +29,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -372,7 +373,11 @@ public class ExpensesScreen extends BaseScreen {
                 owesRows.add(left(muted("It's just you here. Share your invite code!")));
             }
             for (int i = 0; i < balances.size(); i++) {
-                owesRows.add(left(new BalanceRow(balances.get(i), i < balances.size() - 1)));
+                Balance b = balances.get(i);
+                int other = b.getOtherUser().getId();
+                owesRows.add(left(new BalanceRow(b, i < balances.size() - 1,
+                        balanceService.getIOweThemBeforeNetting(other),
+                        balanceService.getTheyOweMeBeforeNetting(other))));
             }
         } catch (SettlrException e) {
             owePill.setValue("-");
@@ -549,11 +554,14 @@ public class ExpensesScreen extends BaseScreen {
         }
     }
 
-    /** "You owe Ben P375.00 [Settle Up]" or "Ana owes you P2,412.25". */
+    /**
+     * "You owe Ben P375.00 [Settle Up]" or "Ana owes you P2,412.25". When money goes both
+     * ways, a second line shows how the net amount was worked out, so it matches Settle Up.
+     */
     private class BalanceRow extends JPanel {
         private final boolean divider;
 
-        BalanceRow(Balance b, boolean divider) {
+        BalanceRow(Balance b, boolean divider, BigDecimal iOweThem, BigDecimal theyOweMe) {
             this.divider = divider;
             setOpaque(false);
             setLayout(new BorderLayout(10, 0));
@@ -580,8 +588,23 @@ public class ExpensesScreen extends BaseScreen {
             } else {
                 text = label(name + ": all settled", Font.PLAIN, 13, Theme.MUTED_TEXT);
             }
+            JPanel texts = verticalPanel();
+            texts.add(left(text));
+            if (iOweThem.signum() > 0 && theyOweMe.signum() > 0) {
+                String how = b.iOweThem()
+                        ? MoneyUtil.format(iOweThem) + " you owe \u2212 " + MoneyUtil.format(theyOweMe) + " " + name + " owes you"
+                        : MoneyUtil.format(theyOweMe) + " " + name + " owes you \u2212 " + MoneyUtil.format(iOweThem) + " you owe";
+                texts.add(left(label(how, Font.PLAIN, 11, Theme.MUTED_TEXT)));
+            }
+            JPanel centered = new JPanel(new GridBagLayout()); // centers the text block vertically
+            centered.setOpaque(false);
+            GridBagConstraints gc = new GridBagConstraints();
+            gc.weightx = 1;
+            gc.anchor = GridBagConstraints.WEST;
+            centered.add(texts, gc);
+
             add(new Avatar(name), BorderLayout.WEST);
-            add(text, BorderLayout.CENTER);
+            add(centered, BorderLayout.CENTER);
             setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height));
         }
 

@@ -139,6 +139,19 @@ public class BalanceService {
     // ---- extra read methods for the screens (not in master doc 8.4) ----
 
     /**
+     * Before netting: the unsettled shares the current user owes this person, added up.
+     * This is what Settle Up lists. getMyBalances() subtracts what they owe back.
+     */
+    public BigDecimal getIOweThemBeforeNetting(int otherUserId) throws SettlrException {
+        return sumUnsettled(currentUser().getId(), otherUserId, currentHouseholdId(), new HashMap<>());
+    }
+
+    /** Before netting: the unsettled shares this person owes the current user, added up. */
+    public BigDecimal getTheyOweMeBeforeNetting(int otherUserId) throws SettlrException {
+        return sumUnsettled(otherUserId, currentUser().getId(), currentHouseholdId(), new HashMap<>());
+    }
+
+    /**
      * The unsettled shares the current user owes to one person, oldest due date first.
      * Used by PaymentDialog. Shares with a pending payment are included but flagged.
      */

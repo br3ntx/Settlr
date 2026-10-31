@@ -1,5 +1,6 @@
 package com.settlr.ui;
 
+import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.screens.ActivityFeedScreen;
 import com.settlr.ui.screens.ExpensesScreen;
 import com.settlr.ui.screens.HouseholdSetupScreen;
@@ -7,6 +8,8 @@ import com.settlr.ui.screens.LeaderboardScreen;
 import com.settlr.ui.screens.LoginScreen;
 import com.settlr.ui.screens.PlaceholderScreen;
 import com.settlr.ui.screens.RegisterScreen;
+import com.settlr.ui.screens.TaskFormDialog;
+import com.settlr.util.DateTimeUtil;
 
 import javax.swing.JFrame;
 import java.awt.BorderLayout;
@@ -38,7 +41,13 @@ public class MainFrame extends JFrame {
 
         // Not built yet: replace each placeholder with the real screen when it's merged
         nav.register(Navigator.DASHBOARD, new PlaceholderScreen("Home"));
-        nav.register(Navigator.TASKS, new PlaceholderScreen("Tasks"));
+        // Tasks: real screen not built yet (#13), but its "Add tasks" popup can be tried already
+        RoundedButton addTask = RoundedButton.mint("+  Add tasks");
+        addTask.setArc(RoundedButton.PILL);
+        PlaceholderScreen tasks = new PlaceholderScreen("Tasks", addTask);
+        addTask.addActionListener(e -> TaskFormDialog.open(tasks, task -> tasks.setNote(
+                "Saved \"" + task.getTitle() + "\", due " + DateTimeUtil.format(task.getFirstDueAt()) + ".")));
+        nav.register(Navigator.TASKS, tasks);
         nav.register(Navigator.SETTINGS, new PlaceholderScreen("Household settings"));
 
         setLayout(new BorderLayout());

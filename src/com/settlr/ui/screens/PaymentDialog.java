@@ -51,6 +51,7 @@ public class PaymentDialog extends ModalPopup {
     private final JLabel selectAll = new JLabel();
     private final JLabel selectedLabel = new JLabel(" ");
     private final JLabel totalLabel = new JLabel(" ");
+    private final JLabel nettingLabel = new JLabel(" "); // explains why "Who owes whom" may show less
     private final JLabel errorLabel = new JLabel(" "); // a space keeps its height when empty
     private final RoundedButton recordButton = new RoundedButton("Record payment");
 
@@ -152,9 +153,13 @@ public class PaymentDialog extends ModalPopup {
         totals.add(totalRight, BorderLayout.EAST);
         row(card, totals, 14, 30);
 
+        nettingLabel.setFont(Theme.font(Font.PLAIN, 11));
+        nettingLabel.setForeground(Theme.MUTED_TEXT);
+        row(card, nettingLabel, 0, 16);
+
         errorLabel.setFont(Theme.font(Font.PLAIN, 12));
         errorLabel.setForeground(Theme.DANGER);
-        row(card, errorLabel, 4, 16);
+        row(card, errorLabel, 2, 16);
 
         // Cancel | Record payment
         RoundedButton cancel = RoundedButton.outline("Cancel");
@@ -212,6 +217,7 @@ public class PaymentDialog extends ModalPopup {
             empty.setAlignmentX(Component.LEFT_ALIGNMENT);
             rowsPanel.add(empty);
         }
+        explainNetting(rows);
         for (BalanceService.ShareRow r : rows) {
             ShareRowView view = new ShareRowView(r);
             rowViews.add(view);
@@ -221,6 +227,32 @@ public class PaymentDialog extends ModalPopup {
         updateTotal();
         rowsPanel.revalidate();
         rowsPanel.repaint();
+    }
+
+    /**
+     * The shares here add up to everything you owe this person. "Who owes whom" also
+     * subtracts what they owe you, so it can show less; this line says why.
+     */
+    private void explainNetting(List<BalanceService.ShareRow> rows) {
+        nettingLabel.setText(" ");
+        try {
+            BigDecimal theyOweMe = balanceService.getTheyOweMeBeforeNetting(creditor.getId());
+            if (theyOweMe.signum() <= 0 || rows.isEmpty()) {
+                return;
+            }
+            BigDecimal iOwe = BigDecimal.ZERO;
+            for (BalanceService.ShareRow r : rows) {
+                iOwe = iOwe.add(r.getAmount());
+            }
+            String name = creditor.getDisplayName();
+            BigDecimal net = iOwe.subtract(theyOweMe);
+            String overall = net.signum() > 0 ? "so overall you owe " + MoneyUtil.format(net) + "."
+                    : net.signum() < 0 ? "so overall " + name + " owes you " + MoneyUtil.format(net.abs()) + "."
+                    : "so overall you're even.";
+            nettingLabel.setText(name + " also owes you " + MoneyUtil.format(theyOweMe) + ", " + overall);
+        } catch (SettlrException ex) {
+            // only an explanation; the shares above are still correct
+        }
     }
 
     // ---------- actions ----------
