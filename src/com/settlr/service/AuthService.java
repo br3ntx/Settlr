@@ -23,7 +23,8 @@ public class AuthService {
     /** Same message for a wrong username or a wrong password, so nobody can guess which usernames exist. */
     public static final String LOGIN_FAILED = "Incorrect username or password";
 
-    private static final int MIN_PASSWORD_LENGTH = 6;
+    /** Shortest password allowed (register and change password). */
+    public static final int MIN_PASSWORD_LENGTH = 6;
 
     private final UserDao userDao = new UserDao();
     private final HouseholdDao householdDao = new HouseholdDao();

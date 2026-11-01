@@ -26,6 +26,7 @@ public final class Navigator {
     public static final String LEADERBOARD = "leaderboard";
     public static final String ACTIVITY = "activity";
     public static final String SETTINGS = "settings";
+    public static final String PROFILE = "profile";
 
     private static Navigator instance;
 
@@ -33,6 +34,7 @@ public final class Navigator {
     private final JPanel container = new JPanel(cards);
     private final Map<String, BaseScreen> screens = new HashMap<>();
     private Sidebar sidebar;
+    private TopBar topBar;
     private String current;
 
     private Navigator() { }
@@ -51,6 +53,20 @@ public final class Navigator {
 
     void setSidebar(Sidebar sidebar) {
         this.sidebar = sidebar;
+    }
+
+    void setTopBar(TopBar topBar) {
+        this.topBar = topBar;
+    }
+
+    /** Updates the name in the sidebar and the avatar in the top bar, e.g. after the Profile changed them. */
+    public void refreshChrome() {
+        if (sidebar != null) {
+            sidebar.refreshUser();
+        }
+        if (topBar != null) {
+            topBar.refresh(current);
+        }
     }
 
     /** Adds a screen under a name. Called once per screen by MainFrame. */
@@ -85,6 +101,10 @@ public final class Navigator {
             sidebar.setVisible(screen.showsSidebar());
             sidebar.setSelected(name);
             sidebar.refreshUser();
+        }
+        if (topBar != null) {
+            topBar.setVisible(screen.showsSidebar()); // same screens as the sidebar
+            topBar.refresh(name);
         }
         cards.show(container, name);
         current = name;

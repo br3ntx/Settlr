@@ -1,6 +1,7 @@
 package com.settlr.dao;
 
 import com.settlr.exception.DataAccessException;
+import com.settlr.model.PayMethod;
 import com.settlr.model.User;
 import com.settlr.util.DBConnection;
 
@@ -14,7 +15,13 @@ import java.time.LocalDateTime;
 /** Reads and writes the users table. */
 public class UserDao implements Dao<User> {
 
-    private static final String COLUMNS = "user_id, username, display_name, password_hash, created_at";
+    private static final String COLUMNS =
+            "user_id, username, display_name, password_hash, created_at, avatar_path, pay_method, pay_number, pay_name";
+
+    /** The same columns with a table alias, e.g. "u.user_id, u.username, ..." for joins (MembershipDao). */
+    static String columns(String alias) {
+        return alias + "." + COLUMNS.replace(", ", ", " + alias + ".");
+    }
 
     @Override
     public User findById(int id) throws DataAccessException {
@@ -54,13 +61,18 @@ public class UserDao implements Dao<User> {
 
     @Override
     public void update(User user) throws DataAccessException {
-        String sql = "UPDATE users SET username = ?, display_name = ?, password_hash = ? WHERE user_id = ?";
+        String sql = "UPDATE users SET username = ?, display_name = ?, password_hash = ?, avatar_path = ?, "
+                + "pay_method = ?, pay_number = ?, pay_name = ? WHERE user_id = ?";
         try (Connection c = DBConnection.getInstance().getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, user.getUsername());
             ps.setString(2, user.getDisplayName());
             ps.setString(3, user.getPasswordHash());
-            ps.setInt(4, user.getId());
+            ps.setString(4, user.getAvatarPath());
+            ps.setString(5, user.getPayMethod() == null ? null : user.getPayMethod().name());
+            ps.setString(6, user.getPayNumber());
+            ps.setString(7, user.getPayName());
+            ps.setInt(8, user.getId());
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new DataAccessException("Could not save the account.", e);
@@ -93,12 +105,22 @@ public class UserDao implements Dao<User> {
         }
     }
 
-    private User mapRow(ResultSet rs) throws SQLException {
-        return new User(
+    /** One row of users (selected with COLUMNS or columns(alias)) as a User. Shared with MembershipDao. */
+    static User mapRow(ResultSet rs) throws SQLException {
+        User u = new User(
                 rs.getInt("user_id"),
                 rs.getString("username"),
                 rs.getString("display_name"),
                 rs.getString("password_hash"),
                 rs.getObject("created_at", LocalDateTime.class));
+        u.setAvatarPath(rs.getString("avatar_path"));
+        String method = rs.getString("pay_method");
+        try {
+            u.setPaymentInfo(method == null ? null : PayMethod.valueOf(method),
+                    rs.getString("pay_number"), rs.getString("pay_name"));
+        } catch (IllegalArgumentException e) {
+            u.setPaymentInfo(null, null, null); // bad data typed into the database by hand: treat as not set
+        }
+        return u;
     }
 }

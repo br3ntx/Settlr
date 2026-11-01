@@ -31,7 +31,7 @@ public class MembershipDao {
      * Task rotation and expense splitting rely on this order.
      */
     public List<User> findActiveMembers(int householdId) throws DataAccessException {
-        String sql = "SELECT u.user_id, u.username, u.display_name, u.password_hash, u.created_at "
+        String sql = "SELECT " + UserDao.columns("u") + " "
                 + "FROM household_members hm "
                 + "JOIN users u ON u.user_id = hm.user_id "
                 + "WHERE hm.household_id = ? AND hm.is_active = TRUE "
@@ -42,12 +42,7 @@ public class MembershipDao {
             ps.setInt(1, householdId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    members.add(new User(
-                            rs.getInt("user_id"),
-                            rs.getString("username"),
-                            rs.getString("display_name"),
-                            rs.getString("password_hash"),
-                            rs.getObject("created_at", LocalDateTime.class)));
+                    members.add(UserDao.mapRow(rs));
                 }
             }
         } catch (SQLException e) {

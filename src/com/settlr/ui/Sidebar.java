@@ -2,7 +2,6 @@ package com.settlr.ui;
 
 import com.settlr.model.Household;
 import com.settlr.model.User;
-import com.settlr.service.AuthService;
 import com.settlr.ui.theme.Theme;
 import com.settlr.util.Session;
 
@@ -14,7 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Left-hand navigation: logo, who is logged in, one button per screen and Log out.
+ * Left-hand navigation: logo, who is logged in and one button per screen.
  * The button for the screen being shown is highlighted.
  */
 public class Sidebar extends JPanel {
@@ -61,14 +60,7 @@ public class Sidebar extends JPanel {
         addItem("Activity", Navigator.ACTIVITY);
         addItem("Household", Navigator.SETTINGS);
 
-        add(Box.createVerticalGlue()); // pushes Log out to the bottom
-
-        NavButton logout = new NavButton("Log out");
-        logout.addActionListener(e -> {
-            new AuthService().logout();
-            Navigator.getInstance().show(Navigator.LOGIN);
-        });
-        add(logout);
+        // Log out moved to the Profile page (click your avatar, top right)
     }
 
     private void addItem(String label, String screenName) {

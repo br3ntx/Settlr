@@ -47,6 +47,12 @@ public class RoundedButton extends JButton {
         return b;
     }
 
+    /** Changes the outline color of an outline() button, e.g. red for Log out. */
+    public void setOutline(Color color) {
+        this.outline = color;
+        repaint();
+    }
+
     public void setColors(Color fill, Color hoverFill, Color text) {
         this.fill = fill;
         this.hoverFill = hoverFill;

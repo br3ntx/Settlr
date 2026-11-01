@@ -127,7 +127,7 @@ public class ExpensesScreen extends BaseScreen {
         setLayout(new BorderLayout());
 
         JPanel page = vertical();
-        page.setBorder(new EmptyBorder(22, 40, 24, 40));
+        page.setBorder(new EmptyBorder(0, 40, 24, 40)); // the top bar above already leaves room
         page.add(left(buildHeader()));
         page.add(left(messageLabel));
         page.add(left(buildCards()));
@@ -689,7 +689,7 @@ public class ExpensesScreen extends BaseScreen {
 
             JPanel who = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
             who.setOpaque(false);
-            who.add(new AvatarLabel(name, 28));
+            who.add(new AvatarLabel(p.getUser(), 28));
             who.add(label(name, Font.BOLD, 13, Theme.TEXT));
 
             JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));

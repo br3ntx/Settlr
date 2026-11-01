@@ -6,7 +6,11 @@ CREATE TABLE users (
     username       VARCHAR(30)  NOT NULL UNIQUE,
     display_name   VARCHAR(50)  NOT NULL,
     password_hash  CHAR(64)     NOT NULL,  -- SHA-256 as 64 hex characters
-    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    avatar_path    VARCHAR(255) NULL,      -- profile picture under uploads/avatars, NULL = initials
+    pay_method     ENUM('GCASH','MAYA','BANK','CASH') NULL,  -- "How to pay me", NULL = not set
+    pay_number     VARCHAR(40)  NULL,      -- GCash/Maya number or "BPI 1234 5678 90"
+    pay_name       VARCHAR(60)  NULL       -- account name
 );
 
 CREATE TABLE households (

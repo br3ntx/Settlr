@@ -12,6 +12,10 @@ public class User {
     private String displayName;
     private String passwordHash;
     private LocalDateTime createdAt;
+    private String avatarPath;      // null = show initials
+    private PayMethod payMethod;    // null = not set
+    private String payNumber;
+    private String payName;
 
     public User(int id, String username, String displayName,
                 String passwordHash, LocalDateTime createdAt) {
@@ -66,5 +70,63 @@ public class User {
     public void setCreatedAt(LocalDateTime createdAt) {
         if (createdAt == null) throw new IllegalArgumentException("Creation time is required.");
         this.createdAt = createdAt;
+    }
+
+    // ---------- profile (all optional) ----------
+
+    /** Path of the profile picture (e.g. uploads/avatars/user_3.png), or null for initials. */
+    public String getAvatarPath() { return avatarPath; }
+
+    public void setAvatarPath(String avatarPath) {
+        this.avatarPath = avatarPath == null || avatarPath.isBlank() ? null : avatarPath;
+    }
+
+    /** How this person wants to be paid, or null if they haven't said. */
+    public PayMethod getPayMethod() { return payMethod; }
+
+    public String getPayNumber() { return payNumber; }
+
+    public String getPayName() { return payName; }
+
+    /**
+     * Sets "How to pay me" all at once. Null method clears it. Cash needs no number or name;
+     * the other methods need both.
+     */
+    public void setPaymentInfo(PayMethod method, String number, String name) {
+        String n = number == null ? "" : number.trim().replaceAll("\\s+", " ");
+        String a = name == null ? "" : name.trim();
+        if (method == null || !method.needsAccount()) {
+            this.payMethod = method;
+            this.payNumber = null;
+            this.payName = null;
+            return;
+        }
+        if (n.isEmpty()) {
+            throw new IllegalArgumentException("Please enter your " + method.getNumberLabel().toLowerCase() + ".");
+        }
+        if (n.length() > 40) {
+            throw new IllegalArgumentException("That number is too long (40 characters at most).");
+        }
+        if (method != PayMethod.BANK && !n.matches("\\+?[0-9 ]{10,16}")) {
+            throw new IllegalArgumentException(method.getLabel() + " numbers are 11 digits, like 0917 123 4567.");
+        }
+        if (a.isEmpty() || a.length() > 60) {
+            throw new IllegalArgumentException("Account name must be 1 to 60 characters.");
+        }
+        this.payMethod = method;
+        this.payNumber = n;
+        this.payName = a;
+    }
+
+    /** Copies every field from other (used to refresh the logged-in user after a save). */
+    public void copyFrom(User other) {
+        setUsername(other.getUsername());
+        setDisplayName(other.getDisplayName());
+        setPasswordHash(other.getPasswordHash());
+        setCreatedAt(other.getCreatedAt());
+        this.avatarPath = other.avatarPath;
+        this.payMethod = other.payMethod;
+        this.payNumber = other.payNumber;
+        this.payName = other.payName;
     }
 }

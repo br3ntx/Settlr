@@ -2,6 +2,8 @@ package com.settlr.ui.screens;
 
 import com.settlr.exception.DataAccessException;
 import com.settlr.exception.SettlrException;
+import com.settlr.model.PayMethod;
+import com.settlr.model.User;
 import com.settlr.service.SettlementService;
 import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.AvatarLabel;
@@ -15,6 +17,7 @@ import com.settlr.util.MoneyUtil;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
@@ -48,6 +51,7 @@ public class PaymentDialog extends ModalPopup {
 
     private static final int FORM_WIDTH = 420;
     private static final int MAX_BREAKDOWN_HEIGHT = 230;
+    private static final int MAX_BREAKDOWN_WITH_PAY_INFO = 160; // keeps the popup inside a 700px window
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
     private static final String DOT = " \u00B7 ";
 
@@ -80,6 +84,7 @@ public class PaymentDialog extends ModalPopup {
     private JScrollPane breakdown;
     private Component breakdownGap;
     private GlassCard card;
+    private int maxBreakdown = MAX_BREAKDOWN_HEIGHT;
 
     /** The amount a settle up with this person would pay right now (shares with a payment waiting are left out). */
     public static BigDecimal amountToPay(SettlementService.Person person) {
@@ -112,7 +117,7 @@ public class PaymentDialog extends ModalPopup {
         // header: avatar, "Pay Ana", close
         JPanel header = new JPanel(new BorderLayout(12, 0));
         header.setOpaque(false);
-        header.add(new AvatarLabel(name, 40), BorderLayout.WEST);
+        header.add(new AvatarLabel(person.getUser(), 40), BorderLayout.WEST);
         header.add(label(amountToPay(person).signum() == 0 && !mine.isEmpty() && !theirs.isEmpty()
                 ? "Even with " + name : "Pay " + name, Font.BOLD, 20, Theme.TEXT), BorderLayout.CENTER);
         JPanel closeHolder = new JPanel(new BorderLayout());
@@ -149,6 +154,13 @@ public class PaymentDialog extends ModalPopup {
         });
         covers.add(toggle);
         row(card, covers, 4, 18);
+
+        // where to send it, from their "How to pay me" on the Profile page
+        JComponent payTo = buildPayTo();
+        if (payTo != null) {
+            row(card, payTo, 12, 56);
+            maxBreakdown = MAX_BREAKDOWN_WITH_PAY_INFO;
+        }
 
         // the receipt / checklist
         box = buildBreakdown();
@@ -276,6 +288,79 @@ public class PaymentDialog extends ModalPopup {
         return b;
     }
 
+    /** "Send to Ben's GCash / 0917 123 4567 . Ben Santos  [Copy]", or null when Ben hasn't set it. */
+    private JComponent buildPayTo() {
+        User u = person.getUser();
+        PayMethod m = u.getPayMethod();
+        if (m == null) {
+            return null;
+        }
+        JPanel box = new JPanel(new BorderLayout(12, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                Shape r = new RoundRectangle2D.Float(0.5f, 0.5f, getWidth() - 1f, getHeight() - 1f, 14, 14);
+                g2.setColor(new Color(95, 208, 176, 18));
+                g2.fill(r);
+                g2.setColor(new Color(95, 208, 176, 90));
+                g2.draw(r);
+                g2.dispose();
+            }
+        };
+        box.setOpaque(false);
+        box.setBorder(new EmptyBorder(8, 14, 8, 12));
+        box.add(new ProfileScreen.MethodTile(m, 30), BorderLayout.WEST);
+
+        JPanel text = new JPanel();
+        text.setOpaque(false);
+        text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
+        if (m.needsAccount()) {
+            JLabel top = label("Send to " + possessive(name) + " " + m.getLabel(), Font.PLAIN, 11, Theme.MUTED_TEXT);
+            JPanel bottom = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            bottom.setOpaque(false);
+            bottom.add(label(u.getPayNumber(), Font.BOLD, 14, Theme.TEXT));
+            bottom.add(label(DOT + u.getPayName(), Font.PLAIN, 12, Theme.MUTED_TEXT));
+            top.setAlignmentX(Component.LEFT_ALIGNMENT);
+            bottom.setAlignmentX(Component.LEFT_ALIGNMENT);
+            text.add(top);
+            text.add(bottom);
+
+            RoundedButton copy = RoundedButton.outline("Copy");
+            copy.setArc(RoundedButton.PILL);
+            copy.setFont(Theme.font(Font.BOLD, 12));
+            copy.setMargin(new Insets(0, 0, 0, 0));
+            copy.setPreferredSize(new Dimension(72, 30));
+            copy.addActionListener(e -> {
+                Toolkit.getDefaultToolkit().getSystemClipboard()
+                        .setContents(new StringSelection(u.getPayNumber()), null);
+                copy.setText("Copied!");
+                Timer back = new Timer(1500, ev -> copy.setText("Copy"));
+                back.setRepeats(false);
+                back.start();
+            });
+            JPanel copyHolder = new JPanel(new GridBagLayout());
+            copyHolder.setOpaque(false);
+            copyHolder.add(copy);
+            box.add(copyHolder, BorderLayout.EAST);
+        } else {
+            JLabel top = label(name + " takes cash", Font.BOLD, 14, Theme.TEXT);
+            JLabel bottom = label("Pay in person.", Font.PLAIN, 11, Theme.MUTED_TEXT);
+            top.setAlignmentX(Component.LEFT_ALIGNMENT);
+            bottom.setAlignmentX(Component.LEFT_ALIGNMENT);
+            text.add(top);
+            text.add(bottom);
+        }
+        JPanel textHolder = new JPanel(new GridBagLayout()); // centers the two lines vertically
+        textHolder.setOpaque(false);
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.weightx = 1;
+        gc.anchor = GridBagConstraints.WEST;
+        textHolder.add(text, gc);
+        box.add(textHolder, BorderLayout.CENTER);
+        return box;
+    }
+
     /** One expense line. Your lines get a tick box (shown while choosing); the whole line toggles it. */
     private JPanel item(SettlementService.ShareLine l, boolean tickable) {
         JPanel p = new JPanel(new BorderLayout(10, 0));
@@ -339,7 +424,7 @@ public class PaymentDialog extends ModalPopup {
         boolean showBox = choosing || breakdownOpen || !theirs.isEmpty();
         breakdown.setVisible(showBox);
         breakdownGap.setVisible(showBox);
-        int height = Math.min(box.getPreferredSize().height, MAX_BREAKDOWN_HEIGHT);
+        int height = Math.min(box.getPreferredSize().height, maxBreakdown);
         Dimension d = new Dimension(FORM_WIDTH, height);
         breakdown.setPreferredSize(d);
         breakdown.setMinimumSize(d);

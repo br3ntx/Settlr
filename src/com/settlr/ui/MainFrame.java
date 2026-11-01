@@ -7,16 +7,19 @@ import com.settlr.ui.screens.HouseholdSetupScreen;
 import com.settlr.ui.screens.LeaderboardScreen;
 import com.settlr.ui.screens.LoginScreen;
 import com.settlr.ui.screens.PlaceholderScreen;
+import com.settlr.ui.screens.ProfileScreen;
 import com.settlr.ui.screens.RegisterScreen;
 import com.settlr.ui.screens.TaskFormDialog;
 import com.settlr.util.DateTimeUtil;
 
 import javax.swing.JFrame;
+import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 
 /**
- * The only window in Settlr: the sidebar on the left, the current screen on the right.
+ * The only window in Settlr: the sidebar on the left, the top bar (your avatar) and the
+ * current screen on the right.
  * To add a new screen: create it (extends BaseScreen), then register it below.
  */
 public class MainFrame extends JFrame {
@@ -49,9 +52,16 @@ public class MainFrame extends JFrame {
                 "Saved \"" + task.getTitle() + "\", due " + DateTimeUtil.format(task.getFirstDueAt()) + ".")));
         nav.register(Navigator.TASKS, tasks);
         nav.register(Navigator.SETTINGS, new PlaceholderScreen("Household settings"));
+        nav.register(Navigator.PROFILE, new ProfileScreen()); // opens from the avatar in the top bar
+
+        TopBar topBar = new TopBar();
+        nav.setTopBar(topBar);
+        JPanel content = new JPanel(new BorderLayout()); // top bar above the current screen
+        content.add(topBar, BorderLayout.NORTH);
+        content.add(nav.getContainer(), BorderLayout.CENTER);
 
         setLayout(new BorderLayout());
         add(sidebar, BorderLayout.WEST);
-        add(nav.getContainer(), BorderLayout.CENTER);
+        add(content, BorderLayout.CENTER);
     }
 }
