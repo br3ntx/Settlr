@@ -56,7 +56,6 @@ public class Sidebar extends JPanel {
         addItem("Home", Navigator.DASHBOARD);
         addItem("Tasks", Navigator.TASKS);
         addItem("Expenses", Navigator.EXPENSES);
-        addItem("Activity", Navigator.ACTIVITY);
         addItem("Household", Navigator.SETTINGS);
 
         // Log out moved to the Profile page (click your avatar, top right)
