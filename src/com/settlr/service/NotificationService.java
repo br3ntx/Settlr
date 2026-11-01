@@ -6,10 +6,12 @@ import com.settlr.exception.SettlrException;
 import com.settlr.model.ExpenseShare;
 import com.settlr.model.Payment;
 import com.settlr.model.Reminders;
+import com.settlr.model.Settlement;
 import com.settlr.model.TaskAssignment;
 import com.settlr.util.Session;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -24,6 +26,7 @@ public class NotificationService {
     private final TaskService taskService = new TaskService();
     private final PaymentService paymentService = new PaymentService();
     private final ExpenseShareDao expenseShareDao = new ExpenseShareDao();
+    private final SettlementService settlementService = new SettlementService();
 
     /**
      * Overdue tasks, unpaid shares past their due date, and payments waiting for the user to
@@ -40,6 +43,10 @@ public class NotificationService {
         List<ExpenseShare> pastDueShares = expenseShareDao.findUnsettledPastDue(myId, LocalDate.now());
         List<Payment> toConfirm = paymentService.getWaitingForMyConfirmation();
 
-        return new Reminders(overdue, pastDueShares, toConfirm);
+        List<Settlement> settleUps = new ArrayList<>();
+        for (SettlementService.Incoming in : settlementService.getWaitingForMe()) {
+            settleUps.add(in.getSettlement());
+        }
+        return new Reminders(overdue, pastDueShares, toConfirm, settleUps);
     }
 }

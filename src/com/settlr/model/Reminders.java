@@ -16,6 +16,7 @@ public class Reminders {
     private List<TaskAssignment> overdueTasks;
     private List<ExpenseShare> unpaidPastDueShares;
     private List<Payment> paymentsToConfirm;
+    private List<Settlement> settlementsToConfirm = new ArrayList<>();
 
     public Reminders(List<TaskAssignment> overdueTasks,
                      List<ExpenseShare> unpaidPastDueShares,
@@ -23,6 +24,26 @@ public class Reminders {
         setOverdueTasks(overdueTasks);
         setUnpaidPastDueShares(unpaidPastDueShares);
         setPaymentsToConfirm(paymentsToConfirm);
+    }
+
+    /** Same as the 3-list constructor, plus settle ups waiting for the user's confirmation. */
+    public Reminders(List<TaskAssignment> overdueTasks,
+                     List<ExpenseShare> unpaidPastDueShares,
+                     List<Payment> paymentsToConfirm,
+                     List<Settlement> settlementsToConfirm) {
+        this(overdueTasks, unpaidPastDueShares, paymentsToConfirm);
+        setSettlementsToConfirm(settlementsToConfirm);
+    }
+
+    public List<Settlement> getSettlementsToConfirm() {
+        return Collections.unmodifiableList(settlementsToConfirm);
+    }
+
+    public void setSettlementsToConfirm(List<Settlement> settlementsToConfirm) {
+        if (settlementsToConfirm == null) {
+            throw new IllegalArgumentException("The settle up list cannot be null.");
+        }
+        this.settlementsToConfirm = new ArrayList<>(settlementsToConfirm);
     }
 
     public List<TaskAssignment> getOverdueTasks() {
@@ -60,7 +81,8 @@ public class Reminders {
 
     /** True when there is nothing to remind about, so no dialog should be shown. */
     public boolean isEmpty() {
-        return overdueTasks.isEmpty() && unpaidPastDueShares.isEmpty() && paymentsToConfirm.isEmpty();
+        return overdueTasks.isEmpty() && unpaidPastDueShares.isEmpty() && paymentsToConfirm.isEmpty()
+                && settlementsToConfirm.isEmpty();
     }
 
     /** Total number of items, handy for a title like "3 things need your attention". */

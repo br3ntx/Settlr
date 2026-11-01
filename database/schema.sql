@@ -128,6 +128,23 @@ CREATE TABLE expense_shares (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
+-- One "settle up" between two people. It pays the NET amount and is linked to one
+-- payment row per open share in BOTH directions, so confirming it settles them all.
+CREATE TABLE settlements (
+    settlement_id  INT AUTO_INCREMENT PRIMARY KEY,
+    household_id   INT           NOT NULL,
+    from_user      INT           NOT NULL,  -- pays the net amount
+    to_user        INT           NOT NULL,  -- receives it and confirms
+    amount         DECIMAL(10,2) NOT NULL CHECK (amount >= 0),  -- 0 when the debts just cancel out
+    note           VARCHAR(255)  NULL,      -- e.g. "GCash ref 1234"
+    created_at     DATETIME      NOT NULL,
+    status         ENUM('PENDING','CONFIRMED','REJECTED') NOT NULL DEFAULT 'PENDING',
+    responded_at   DATETIME      NULL,
+    FOREIGN KEY (household_id) REFERENCES households(household_id),
+    FOREIGN KEY (from_user) REFERENCES users(user_id),
+    FOREIGN KEY (to_user) REFERENCES users(user_id)
+);
+
 CREATE TABLE payments (
     payment_id    INT AUTO_INCREMENT PRIMARY KEY,
     share_id      INT           NOT NULL,
@@ -138,7 +155,9 @@ CREATE TABLE payments (
     status        ENUM('PENDING','CONFIRMED','REJECTED') NOT NULL DEFAULT 'PENDING',
     confirmed_at  DATETIME      NULL,
     note          VARCHAR(255)  NULL,
+    settlement_id INT           NULL,  -- set when the payment is part of a settle up
     FOREIGN KEY (share_id) REFERENCES expense_shares(share_id) ON DELETE CASCADE,
+    FOREIGN KEY (settlement_id) REFERENCES settlements(settlement_id),
     FOREIGN KEY (from_user) REFERENCES users(user_id),
     FOREIGN KEY (to_user) REFERENCES users(user_id)
 );

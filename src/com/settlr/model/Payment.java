@@ -24,6 +24,7 @@ public class Payment {
     private PaymentStatus status;
     private LocalDateTime confirmedAt;  // null until confirmed
     private String note;                // optional, may be null
+    private Integer settlementId;       // null unless the payment is part of a settle up
 
     public Payment(int id, int shareId, int fromUser, int toUser, BigDecimal amount,
                    LocalDateTime paidAt, PaymentStatus status,
@@ -116,6 +117,15 @@ public class Payment {
      * A person cannot pay themselves. A value of 0 means "not set yet" (the
      * constructor sets one side first), so the check only runs when both are set.
      */
+    /** The settle up this payment belongs to, or null for a single-share payment. */
+    public Integer getSettlementId() { return settlementId; }
+
+    public void setSettlementId(Integer settlementId) {
+        if (settlementId != null && settlementId <= 0)
+            throw new IllegalArgumentException("Settlement id must be positive when it is given.");
+        this.settlementId = settlementId;
+    }
+
     private static void requireDifferent(int fromUser, int toUser) {
         if (fromUser > 0 && toUser > 0 && fromUser == toUser)
             throw new IllegalArgumentException("You cannot pay yourself.");
