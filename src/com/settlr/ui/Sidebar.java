@@ -56,7 +56,6 @@ public class Sidebar extends JPanel {
         addItem("Home", Navigator.DASHBOARD);
         addItem("Tasks", Navigator.TASKS);
         addItem("Expenses", Navigator.EXPENSES);
-        addItem("Leaderboard", Navigator.LEADERBOARD);
         addItem("Activity", Navigator.ACTIVITY);
         addItem("Household", Navigator.SETTINGS);
 

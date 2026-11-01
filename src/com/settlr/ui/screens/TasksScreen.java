@@ -13,7 +13,6 @@ import com.settlr.model.User;
 import com.settlr.service.SwapService;
 import com.settlr.service.TaskService;
 import com.settlr.ui.BaseScreen;
-import com.settlr.ui.Navigator;
 import com.settlr.ui.components.AvatarLabel;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
@@ -439,8 +438,6 @@ public class TasksScreen extends BaseScreen {
         head.setOpaque(false);
         head.add(label(weekOffset == 0 ? "Household this week" : "Household", Font.BOLD, 14, Theme.TEXT),
                 BorderLayout.WEST);
-        head.add(link("Leaderboard \u203A", () -> Navigator.getInstance().show(Navigator.LEADERBOARD)),
-                BorderLayout.EAST);
         householdCard.add(left(fitHeight(head)));
         householdCard.add(Box.createVerticalStrut(4));
 

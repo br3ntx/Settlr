@@ -3,7 +3,6 @@ package com.settlr.ui;
 import com.settlr.ui.screens.ActivityFeedScreen;
 import com.settlr.ui.screens.ExpensesScreen;
 import com.settlr.ui.screens.HouseholdSetupScreen;
-import com.settlr.ui.screens.LeaderboardScreen;
 import com.settlr.ui.screens.LoginScreen;
 import com.settlr.ui.screens.PlaceholderScreen;
 import com.settlr.ui.screens.ProfileScreen;
@@ -37,7 +36,6 @@ public class MainFrame extends JFrame {
         nav.register(Navigator.REGISTER, new RegisterScreen());
         nav.register(Navigator.HOUSEHOLD_SETUP, new HouseholdSetupScreen());
         nav.register(Navigator.EXPENSES, new ExpensesScreen()); // includes the old Balances page
-        nav.register(Navigator.LEADERBOARD, new LeaderboardScreen());
         nav.register(Navigator.ACTIVITY, new ActivityFeedScreen());
 
         // Not built yet: replace each placeholder with the real screen when it's merged
