@@ -110,8 +110,9 @@ public class CatchUpService {
      * Rotating task: the next active member after the previous assignee in
      * join order (wrapping around). If that person left, start again from the
      * first member. Non-rotating task: always the same person.
+     * Package-private and static so TaskService can preview upcoming turns with the same rule.
      */
-    private int chooseAssignee(RecurringTask task, int previousAssignee, List<User> members) {
+    static int chooseAssignee(RecurringTask task, int previousAssignee, List<User> members) {
         if (!task.isRotates()) {
             return isActive(members, task.getDefaultAssigneeId())
                     ? task.getDefaultAssigneeId()
@@ -125,7 +126,7 @@ public class CatchUpService {
         return members.get(0).getId();
     }
 
-    private boolean isActive(List<User> members, int userId) {
+    private static boolean isActive(List<User> members, int userId) {
         for (User member : members) {
             if (member.getId() == userId) {
                 return true;

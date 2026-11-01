@@ -9,6 +9,7 @@ import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.AvatarLabel;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
+import com.settlr.ui.components.SegmentedControl;
 import com.settlr.ui.components.SlimScrollBarUI;
 import com.settlr.ui.components.StyledTextField;
 import com.settlr.ui.theme.Theme;
@@ -30,7 +31,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.IntConsumer;
 
 /**
  * "Pay Ana" (master doc section 5, net version).
@@ -128,7 +128,7 @@ public class PaymentDialog extends ModalPopup {
 
         // Pay all | Choose expenses (only when choosing would change something)
         if (mine.size() > 1 || (!mine.isEmpty() && !theirs.isEmpty())) {
-            ModeSwitch modes = new ModeSwitch(new String[] {"Pay all", "Choose expenses"}, i -> {
+            SegmentedControl modes = new SegmentedControl(new String[] {"Pay all", "Choose expenses"}, i -> {
                 choosing = i == 1;
                 refresh();
             });
@@ -556,72 +556,6 @@ public class PaymentDialog extends ModalPopup {
     }
 
     // ---------- small drawn pieces ----------
-
-    /** Two options side by side in a dark pill; the picked one is beige. */
-    private static final class ModeSwitch extends JComponent {
-        private static final int PAD = 16, HEIGHT = 32, INSET = 3;
-        private final String[] options;
-        private final int[] widths;
-        private int selected;
-
-        ModeSwitch(String[] options, IntConsumer onChange) {
-            this.options = options;
-            setFont(Theme.font(Font.BOLD, 12));
-            FontMetrics fm = getFontMetrics(getFont());
-            widths = new int[options.length];
-            int total = INSET * 2;
-            for (int i = 0; i < options.length; i++) {
-                widths[i] = fm.stringWidth(options[i]) + PAD * 2;
-                total += widths[i];
-            }
-            Dimension d = new Dimension(total, HEIGHT);
-            setPreferredSize(d);
-            setMinimumSize(d);
-            setMaximumSize(d);
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    int x = INSET;
-                    for (int i = 0; i < widths.length; i++) {
-                        if (e.getX() < x + widths[i] || i == widths.length - 1) {
-                            if (i != selected) {
-                                selected = i;
-                                repaint();
-                                onChange.accept(i);
-                            }
-                            return;
-                        }
-                        x += widths[i];
-                    }
-                }
-            });
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-            int w = getWidth(), h = getHeight();
-            g2.setColor(new Color(0x1C2828));
-            g2.fill(new RoundRectangle2D.Float(0, 0, w, h, h, h));
-            g2.setFont(getFont());
-            FontMetrics fm = g2.getFontMetrics();
-            int x = INSET;
-            for (int i = 0; i < options.length; i++) {
-                if (i == selected) {
-                    g2.setColor(Theme.PRIMARY);
-                    g2.fill(new RoundRectangle2D.Float(x, INSET, widths[i], h - INSET * 2, h - INSET * 2, h - INSET * 2));
-                }
-                g2.setColor(i == selected ? Theme.ON_PRIMARY : Theme.MUTED_TEXT);
-                g2.drawString(options[i], x + (widths[i] - fm.stringWidth(options[i])) / 2,
-                        (h - fm.getHeight()) / 2 + fm.getAscent());
-                x += widths[i];
-            }
-            g2.dispose();
-        }
-    }
 
     /** A tick box: beige with a dark tick when on, an outline when off. */
     private static final class Check extends JComponent {

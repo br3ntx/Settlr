@@ -13,6 +13,8 @@ import com.settlr.exception.ValidationException;
 import com.settlr.model.ActivityType;
 import com.settlr.model.Recurrence;
 import com.settlr.model.RecurringTask;
+import com.settlr.model.SwapRequest;
+import com.settlr.model.SwapStatus;
 import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
@@ -44,6 +46,20 @@ public class TaskService {
     private final SwapRequestDao swapDao = new SwapRequestDao();
     private final MembershipDao membershipDao = new MembershipDao();
     private final ActivityService activityService = new ActivityService();
+
+    /** One upcoming turn of a task: who does it and when. Read-only. */
+    public static final class Turn {
+        private final User user;
+        private final LocalDateTime dueAt;
+
+        Turn(User user, LocalDateTime dueAt) {
+            this.user = user;
+            this.dueAt = dueAt;
+        }
+
+        public User getUser() { return user; }
+        public LocalDateTime getDueAt() { return dueAt; }
+    }
 
     /** One step of a transaction; gets the shared connection. */
     private interface TransactionBody {
@@ -128,7 +144,15 @@ public class TaskService {
 
         LocalDateTime now = LocalDateTime.now();
         a.markComplete(now);       // the DONE / DONE_LATE rule lives in the model
-        assignmentDao.update(a);
+        SwapRequest swap = swapDao.findPendingForAssignment(assignmentId);
+        runInTransaction(c -> {
+            assignmentDao.update(c, a);
+            if (swap != null) {        // nobody can take a finished task, so its swap request ends too
+                swap.setStatus(SwapStatus.DECLINED);
+                swap.setRespondedAt(now);
+                swapDao.update(c, swap);
+            }
+        });
         logCompletion(a, now);
     }
 
@@ -154,6 +178,126 @@ public class TaskService {
         int householdId = currentHouseholdId();
         LocalDateTime start = DateTimeUtil.weekStart(anyDayInWeek);
         return assignmentDao.findBetween(householdId, start, start.plusDays(7));
+    }
+
+    // ---- reading for the Tasks page ------------------------------------
+
+    /** Every task of the household that isn't archived (for repeat, rotation and description details). */
+    public List<Task> getActiveTasks() throws SettlrException {
+        return taskDao.findActiveByHousehold(currentHouseholdId());
+    }
+
+    /** Everyone's PENDING assignments in this household whose due time has passed, earliest first. */
+    public List<TaskAssignment> getOverdue() throws SettlrException {
+        int householdId = currentHouseholdId();
+        List<Integer> ids = new ArrayList<>();
+        for (Task t : taskDao.findActiveByHousehold(householdId)) {
+            ids.add(t.getId());
+        }
+        List<TaskAssignment> result = new ArrayList<>();
+        for (TaskAssignment a : assignmentDao.findPendingDueBefore(LocalDateTime.now())) {
+            if (ids.contains(a.getTaskId())) {
+                result.add(a);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * This assignment's turn and the next ones after it, e.g. You (today), Carlo (Mon), Dani (Tue).
+     * Later turns are a preview: the app only creates them when they come up (CatchUpService),
+     * using the same rotation rule as here. A one-time task has just the one turn.
+     */
+    public List<Turn> upcomingTurns(TaskAssignment from, int count) throws SettlrException {
+        requireInHousehold(from);
+        Task task = taskDao.findById(from.getTaskId());
+        List<User> members = membershipDao.findActiveMembers(currentHouseholdId());
+        List<Turn> turns = new ArrayList<>();
+        int assignee = from.getAssigneeId();
+        LocalDateTime due = from.getDueAt();
+        turns.add(new Turn(findMember(members, assignee, from.getAssigneeName()), due));
+        if (!(task instanceof RecurringTask) || members.isEmpty()) {
+            return turns;
+        }
+        RecurringTask recurring = (RecurringTask) task;
+        while (turns.size() < count) {
+            due = recurring.getNextDueDate(due);
+            assignee = CatchUpService.chooseAssignee(recurring, assignee, members);
+            turns.add(new Turn(findMember(members, assignee, null), due));
+        }
+        return turns;
+    }
+
+    /**
+     * Turns of repeating tasks that will come up in the Monday-to-Sunday week containing the given
+     * day but don't exist yet. The app creates a turn only when the one before it is due
+     * (CatchUpService), so without these a daily task would show just one day of the week.
+     * They have id 0 and can't be ticked off or swapped until they're created.
+     */
+    public List<TaskAssignment> getPlannedTurns(LocalDate anyDayInWeek) throws SettlrException {
+        if (anyDayInWeek == null) {
+            throw new ValidationException("Please choose a day.");
+        }
+        int householdId = currentHouseholdId();
+        LocalDateTime from = DateTimeUtil.weekStart(anyDayInWeek);
+        LocalDateTime to = from.plusDays(7);
+        LocalDateTime now = LocalDateTime.now();
+        List<User> members = membershipDao.findActiveMembers(householdId);
+        List<TaskAssignment> planned = new ArrayList<>();
+        if (members.isEmpty()) {
+            return planned;
+        }
+        for (Task task : taskDao.findActiveByHousehold(householdId)) {
+            if (!(task instanceof RecurringTask)) {
+                continue;
+            }
+            RecurringTask recurring = (RecurringTask) task;
+            TaskAssignment latest = assignmentDao.findLatestForTask(task.getId());
+            if (latest == null) {
+                continue;
+            }
+            LocalDateTime due = latest.getDueAt();
+            int assignee = latest.getAssigneeId();
+            while (true) {
+                due = recurring.getNextDueDate(due);
+                if (!due.isBefore(to)) {
+                    break;
+                }
+                assignee = CatchUpService.chooseAssignee(recurring, assignee, members);
+                if (due.isBefore(from) || due.isBefore(now)) {
+                    continue;
+                }
+                TaskAssignment turn = new TaskAssignment(task.getId(), assignee, due);
+                turn.setTaskTitle(task.getTitle());
+                turn.setTaskPoints(task.getPoints());
+                turn.setAssigneeName(findMember(members, assignee, null).getDisplayName());
+                planned.add(turn);
+            }
+        }
+        planned.sort((a, b) -> a.getDueAt().compareTo(b.getDueAt()));
+        return planned;
+    }
+
+    /** True when the current user may edit or archive this task (its creator or an Admin). */
+    public boolean canModify(Task task) throws SettlrException {
+        return task != null && (task.getCreatedBy() == currentUser().getId() || Session.getInstance().isAdmin());
+    }
+
+    /** True when the current user may tick this assignment off (its assignee or an Admin). */
+    public boolean canComplete(TaskAssignment a) throws SettlrException {
+        return a.getId() > 0 && a.getStatus() == TaskStatus.PENDING
+                && (a.getAssigneeId() == currentUser().getId() || Session.getInstance().isAdmin());
+    }
+
+    private static User findMember(List<User> members, int userId, String fallbackName) {
+        for (User u : members) {
+            if (u.getId() == userId) {
+                return u;
+            }
+        }
+        // someone who left the household: a stand-in with just the name
+        return new User(userId == 0 ? 1 : userId, "former_member", fallbackName == null ? "Former member" : fallbackName,
+                "0000000000000000000000000000000000000000000000000000000000000000", LocalDateTime.now());
     }
 
     // ---- validation and permissions ------------------------------------
