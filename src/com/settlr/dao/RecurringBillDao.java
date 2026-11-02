@@ -134,6 +134,38 @@ public class RecurringBillDao implements Dao<RecurringBill> {
         }
     }
 
+    /** Every bill of one household, running or paused, oldest first. */
+    public List<RecurringBill> findByHousehold(int householdId) throws DataAccessException {
+        String sql = "SELECT " + COLUMNS + " FROM recurring_bills WHERE household_id = ? ORDER BY bill_id";
+        try (Connection con = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, householdId);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<RecurringBill> bills = new ArrayList<>();
+                while (rs.next()) {
+                    bills.add(map(con, rs));
+                }
+                return bills;
+            }
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not load the recurring bills.", ex);
+        }
+    }
+
+    /** Takes someone off every bill of a household (used when they leave or are removed). */
+    public void removeMemberFromBills(int householdId, int userId) throws DataAccessException {
+        String sql = "DELETE FROM recurring_bill_members WHERE user_id = ? AND bill_id IN "
+                + "(SELECT bill_id FROM recurring_bills WHERE household_id = ?)";
+        try (Connection con = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setInt(2, householdId);
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not update the recurring bills.", ex);
+        }
+    }
+
     /** Every active bill of every household; the startup catch-up works on all of them. */
     public List<RecurringBill> findActive() throws DataAccessException {
         String sql = "SELECT " + COLUMNS + " FROM recurring_bills WHERE is_active = TRUE ORDER BY bill_id";

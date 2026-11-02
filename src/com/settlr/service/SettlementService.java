@@ -211,6 +211,38 @@ public class SettlementService {
         throw new NotFoundException("That person isn't an active member of your household.");
     }
 
+    /**
+     * Who this member still owes money to, after both directions cancel out, biggest first.
+     * Each Person is seen from the member's side, so getNet() is negative (what they owe).
+     * Used by the Household page: you can't leave while this isn't empty, and an Admin is
+     * warned before removing someone who owes.
+     */
+    public List<Person> getDebtsOf(int userId) throws SettlrException {
+        int householdId = currentHouseholdId();
+        List<User> members = membershipDao.findActiveMembers(householdId);
+        User target = null;
+        for (User u : members) {
+            if (u.getId() == userId) {
+                target = u;
+            }
+        }
+        if (target == null) {
+            throw new NotFoundException("That person isn't an active member of your household.");
+        }
+        Context ctx = new Context(householdId);
+        List<Person> owed = new ArrayList<>();
+        for (User other : members) {
+            if (other.getId() != userId) {
+                Person p = buildPerson(target, other, ctx);
+                if (p.getNet().signum() < 0) {
+                    owed.add(p);
+                }
+            }
+        }
+        owed.sort(Comparator.comparing(Person::getNet)); // most negative (biggest debt) first
+        return owed;
+    }
+
     /** Settle ups the current user has to confirm or reject, oldest first. */
     public List<Incoming> getWaitingForMe() throws SettlrException {
         User me = currentUser();

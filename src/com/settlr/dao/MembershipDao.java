@@ -109,6 +109,25 @@ public class MembershipDao {
         }
     }
 
+    /** Everyone currently in the household with their role and join date, in the order they joined. */
+    public List<Membership> findActiveMemberships(int householdId) throws DataAccessException {
+        String sql = "SELECT household_id, user_id, role, joined_at, is_active FROM household_members "
+                + "WHERE household_id = ? AND is_active = TRUE ORDER BY joined_at, user_id";
+        List<Membership> result = new ArrayList<>();
+        try (Connection c = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, householdId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.add(mapRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new DataAccessException("Could not load the household members.", e);
+        }
+        return result;
+    }
+
     /** Changes a member's role (e.g. making someone else Admin). */
     public void updateRole(int householdId, int userId, Role role) throws DataAccessException {
         runUpdate("UPDATE household_members SET role = ? WHERE household_id = ? AND user_id = ?",

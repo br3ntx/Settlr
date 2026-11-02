@@ -15,7 +15,8 @@ public class StatusBadge extends JComponent {
         PENDING(Theme.AMBER, new Color(201, 164, 110, 45)),
         OK(Theme.MINT, new Color(95, 208, 176, 38)),
         NEUTRAL(Theme.MUTED_TEXT, new Color(255, 255, 255, 18)),
-        LIGHT(new Color(0xC9D0CC), new Color(255, 255, 255, 22));
+        LIGHT(new Color(0xC9D0CC), new Color(255, 255, 255, 22)),
+        ROLE(Theme.PRIMARY, new Color(232, 217, 205, 38));
 
         final Color text;
         final Color fill;

@@ -1,6 +1,7 @@
 package com.settlr.ui;
 
 import com.settlr.ui.screens.ExpensesScreen;
+import com.settlr.ui.screens.HouseholdScreen;
 import com.settlr.ui.screens.HouseholdSetupScreen;
 import com.settlr.ui.screens.LoginScreen;
 import com.settlr.ui.screens.PlaceholderScreen;
@@ -39,7 +40,7 @@ public class MainFrame extends JFrame {
         // Not built yet: replace each placeholder with the real screen when it's merged
         nav.register(Navigator.DASHBOARD, new PlaceholderScreen("Home"));
         nav.register(Navigator.TASKS, new TasksScreen());
-        nav.register(Navigator.SETTINGS, new PlaceholderScreen("Household settings"));
+        nav.register(Navigator.SETTINGS, new HouseholdScreen()); // sidebar: Household
         nav.register(Navigator.PROFILE, new ProfileScreen()); // opens from the avatar in the top bar
 
         TopBar topBar = new TopBar();
