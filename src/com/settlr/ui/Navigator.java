@@ -25,6 +25,7 @@ public final class Navigator {
     public static final String EXPENSES = "expenses";
     public static final String SETTINGS = "settings";
     public static final String PROFILE = "profile";
+    public static final String SHOP = "shop";
 
     private static Navigator instance;
 

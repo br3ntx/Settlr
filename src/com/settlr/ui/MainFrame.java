@@ -8,6 +8,7 @@ import com.settlr.ui.screens.PlaceholderScreen;
 import com.settlr.ui.screens.ProfileScreen;
 import com.settlr.ui.screens.TasksScreen;
 import com.settlr.ui.screens.RegisterScreen;
+import com.settlr.ui.screens.ShopScreen;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -41,6 +42,7 @@ public class MainFrame extends JFrame {
         nav.register(Navigator.DASHBOARD, new PlaceholderScreen("Home"));
         nav.register(Navigator.TASKS, new TasksScreen());
         nav.register(Navigator.SETTINGS, new HouseholdScreen()); // sidebar: Household
+        nav.register(Navigator.SHOP, new ShopScreen());
         nav.register(Navigator.PROFILE, new ProfileScreen()); // opens from the avatar in the top bar
 
         TopBar topBar = new TopBar();

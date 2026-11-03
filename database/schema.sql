@@ -178,3 +178,25 @@ CREATE TABLE activity_log (
     FOREIGN KEY (household_id) REFERENCES households(household_id),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
+
+-- Shop: hats and accessories bought with XP, and pets from the pet crate.
+-- What each item is (name, price, rarity) lives in Java (ShopCatalog); this only records who owns what.
+CREATE TABLE owned_items (
+    user_id      INT         NOT NULL,
+    item_code    VARCHAR(30) NOT NULL,  -- e.g. 'HAT_CROWN' or 'PET_BUNNY'
+    acquired_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, item_code),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+-- XP spent (negative) and given back (positive). XP earned is worked out from finished
+-- tasks and on-time payments, so balance = earned + SUM(amount).
+CREATE TABLE xp_transactions (
+    tx_id       INT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT          NOT NULL,
+    amount      INT          NOT NULL,
+    reason      VARCHAR(80)  NOT NULL,
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX (user_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
