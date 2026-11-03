@@ -7,11 +7,22 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
+import com.settlr.model.Cosmetic;
+import com.settlr.model.OwnedPet;
+import com.settlr.model.Pet;
+import com.settlr.model.ShopCatalog;
+import com.settlr.model.ShopItem;
+
 /**
- * All SQL for the Shop: owned_items, xp_transactions, and the XP a user has earned.
+ * All SQL for the Shop and pets: owned_items (including each pet's name and outfit),
+ * users.active_pet, xp_transactions, and the XP a user has earned.
  *
  * It doesn't implement Dao<T> because these rows have no id of their own (an owned item is
  * just "user X owns code Y"). Methods that take a Connection are for ShopService's
@@ -41,6 +52,34 @@ public class ShopDao {
             + "   JOIN expenses e ON e.expense_id = s.expense_id "
             + "  WHERE p.from_user = ? AND p.status = 'CONFIRMED' "
             + "    AND p.paid_at < DATE_ADD(e.due_date, INTERVAL 1 DAY))";
+
+    /** XP earned from tasks finished and payments confirmed since the given time (e.g. this week). */
+    public int findEarnedSince(int userId, LocalDateTime since) throws DataAccessException {
+        String sql = "SELECT "
+                + "(SELECT COALESCE(SUM(CASE a.status WHEN 'DONE' THEN t.points * " + XP_PER_POINT
+                + " ELSE t.points * " + XP_PER_POINT_LATE + " END), 0) "
+                + "   FROM task_assignments a JOIN tasks t ON t.task_id = a.task_id "
+                + "  WHERE a.assignee_id = ? AND a.status IN ('DONE','DONE_LATE') AND a.completed_at >= ?) "
+                + "+ (SELECT COUNT(*) * " + XP_PER_PAYMENT
+                + "   FROM payments p "
+                + "   JOIN expense_shares s ON s.share_id = p.share_id "
+                + "   JOIN expenses e ON e.expense_id = s.expense_id "
+                + "  WHERE p.from_user = ? AND p.status = 'CONFIRMED' AND p.confirmed_at >= ? "
+                + "    AND p.paid_at < DATE_ADD(e.due_date, INTERVAL 1 DAY))";
+        try (Connection c = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setTimestamp(2, Timestamp.valueOf(since));
+            ps.setInt(3, userId);
+            ps.setTimestamp(4, Timestamp.valueOf(since));
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not load your XP.", ex);
+        }
+    }
 
     /** XP the user has right now: earned, minus what they spent, plus what they got back. */
     public int findBalance(int userId) throws DataAccessException {
@@ -127,5 +166,82 @@ public class ShopDao {
         } catch (SQLException ex) {
             throw new DataAccessException("Could not save your purchase.", ex);
         }
+    }
+
+    // ---- pets --------------------------------------------------------------
+
+    /** The user's pets with their names and outfits, oldest first. Unknown codes are skipped. */
+    public List<OwnedPet> findPets(int userId) throws DataAccessException {
+        String sql = "SELECT item_code, pet_name, hat, glasses, neck FROM owned_items "
+                + "WHERE user_id = ? AND item_code LIKE 'PET\\_%' ORDER BY acquired_at, item_code";
+        List<OwnedPet> pets = new ArrayList<>();
+        try (Connection c = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ShopItem item = ShopCatalog.find(rs.getString("item_code"));
+                    if (!(item instanceof Pet)) {
+                        continue; // a pet removed from the catalog
+                    }
+                    OwnedPet pet = new OwnedPet((Pet) item);
+                    pet.setName(rs.getString("pet_name"));
+                    for (String column : new String[] {"hat", "glasses", "neck"}) {
+                        ShopItem worn = ShopCatalog.find(rs.getString(column));
+                        if (worn instanceof Cosmetic) {
+                            pet.wear((Cosmetic) worn);
+                        }
+                    }
+                    pets.add(pet);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not load your pets.", ex);
+        }
+        return pets;
+    }
+
+    /** The code of the pet the user chose to show on Home, or null. */
+    public String findActivePet(int userId) throws DataAccessException {
+        try (Connection c = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = c.prepareStatement("SELECT active_pet FROM users WHERE user_id = ?")) {
+            ps.setInt(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not load your pet.", ex);
+        }
+    }
+
+    /** Saves a pet's name and outfit. */
+    public void updatePet(Connection c, int userId, OwnedPet pet) throws DataAccessException {
+        String sql = "UPDATE owned_items SET pet_name = ?, hat = ?, glasses = ?, neck = ? "
+                + "WHERE user_id = ? AND item_code = ?";
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setString(1, pet.getName());
+            ps.setString(2, codeOf(pet.getItem(Cosmetic.Slot.HAT)));
+            ps.setString(3, codeOf(pet.getItem(Cosmetic.Slot.GLASSES)));
+            ps.setString(4, codeOf(pet.getItem(Cosmetic.Slot.NECK)));
+            ps.setInt(5, userId);
+            ps.setString(6, pet.getPet().getCode());
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not save your pet.", ex);
+        }
+    }
+
+    public void updateActivePet(Connection c, int userId, String petCode) throws DataAccessException {
+        try (PreparedStatement ps = c.prepareStatement("UPDATE users SET active_pet = ? WHERE user_id = ?")) {
+            ps.setString(1, petCode);
+            ps.setInt(2, userId);
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            throw new DataAccessException("Could not save your pet.", ex);
+        }
+    }
+
+    private static String codeOf(ShopItem item) {
+        return item == null ? null : item.getCode();
     }
 }

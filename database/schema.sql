@@ -10,7 +10,8 @@ CREATE TABLE users (
     avatar_path    VARCHAR(255) NULL,      -- profile picture under uploads/avatars, NULL = initials
     pay_method     ENUM('GCASH','MAYA','BANK','CASH') NULL,  -- "How to pay me", NULL = not set
     pay_number     VARCHAR(40)  NULL,      -- GCash/Maya number or "BPI 1234 5678 90"
-    pay_name       VARCHAR(60)  NULL       -- account name
+    pay_name       VARCHAR(60)  NULL,      -- account name
+    active_pet     VARCHAR(30)  NULL       -- the pet shown on Home (an item_code in owned_items), NULL = first pet
 );
 
 CREATE TABLE households (
@@ -185,6 +186,11 @@ CREATE TABLE owned_items (
     user_id      INT         NOT NULL,
     item_code    VARCHAR(30) NOT NULL,  -- e.g. 'HAT_CROWN' or 'PET_BUNNY'
     acquired_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Only used on pet rows: the pet's name and what it wears (item codes), NULL = default / nothing
+    pet_name     VARCHAR(20) NULL,
+    hat          VARCHAR(30) NULL,
+    glasses      VARCHAR(30) NULL,
+    neck         VARCHAR(30) NULL,
     PRIMARY KEY (user_id, item_code),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );

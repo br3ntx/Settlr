@@ -803,7 +803,7 @@ public class TasksScreen extends BaseScreen {
     }
 
     /** The round tick button. Mint when done, amber when done late, red ring when overdue or missed. */
-    private static final class CheckCircle extends JComponent {
+    static final class CheckCircle extends JComponent {
         private static final int SIZE = 22;
         private final TaskStatus status;
         private final boolean overdue;
