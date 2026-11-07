@@ -2,18 +2,20 @@ package com.settlr.ui.screens;
 
 import com.settlr.model.Cosmetic;
 import com.settlr.model.OwnedPet;
+import com.settlr.ui.components.PetArt;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
 
 /**
- * The pet standing in the open (no box): a soft glow behind it, the pet, and a shadow under it.
- * There are no pet pictures yet, so the pet is a dashed circle, and what it wears shows as small
- * labels around it (hat on top, glasses on the left, neck item lower right). With no pet, it
- * shows a gold "?" instead.
+ * The pet standing in the open (no box): a soft glow behind it and the pet's picture (PetArt),
+ * which has its own shadow. A pet with no picture yet is a dashed circle. What it wears shows as
+ * small labels around it (hat on top, glasses on the left, neck item lower right) until the items
+ * have pictures too. With no pet, it shows the pet egg.
  */
 class PetFigure extends JComponent {
 
@@ -49,7 +51,18 @@ class PetFigure extends JComponent {
                 new float[] {0f, 1f}, new Color[] {new Color(232, 217, 205, 26), new Color(232, 217, 205, 0)}));
         g2.fill(new Ellipse2D.Float(cx - glow / 2, cy - glow / 2, glow, glow));
 
-        // shadow under
+        BufferedImage picture = pet == null ? PetArt.egg() : PetArt.of(pet.getPet());
+        if (picture != null) {
+            float box = Math.min(w, h) * 0.86f;
+            PetArt.draw(g2, picture, cx - box / 2, h * 0.5f - box / 2, box, box);
+            if (pet != null) {
+                drawOutfit(g2, cx, h * 0.5f, box * 0.72f);
+            }
+            g2.dispose();
+            return;
+        }
+
+        // no picture: a dashed circle with a shadow under it
         float sw = d * 0.85f, sh = d * 0.11f, sy = cy + d / 2 + d * 0.1f;
         g2.setPaint(new RadialGradientPaint(cx, sy + sh / 2, sw / 2,
                 new float[] {0f, 1f}, new Color[] {new Color(0, 0, 0, 80), new Color(0, 0, 0, 0)}));
@@ -75,21 +88,26 @@ class PetFigure extends JComponent {
             centered(g2, "Pet picture", cx, cy - fm.getHeight() / 2f);
             centered(g2, "goes here", cx, cy + fm.getHeight() / 2f);
 
-            g2.setFont(Theme.font(Font.BOLD, 10));
-            Cosmetic hat = pet.getItem(Cosmetic.Slot.HAT);
-            Cosmetic glasses = pet.getItem(Cosmetic.Slot.GLASSES);
-            Cosmetic neck = pet.getItem(Cosmetic.Slot.NECK);
-            if (hat != null) {
-                chip(g2, hat.getName(), cx, cy - d / 2 - 4, true);
-            }
-            if (glasses != null) {
-                chip(g2, glasses.getName(), cx - d * 0.42f, cy - d * 0.2f, true);
-            }
-            if (neck != null) {
-                chip(g2, neck.getName(), cx + d * 0.42f, cy + d * 0.36f, true);
-            }
+            drawOutfit(g2, cx, cy, d);
         }
         g2.dispose();
+    }
+
+    /** What the pet wears, as labels around a pet of size d centered on (cx, cy). */
+    private void drawOutfit(Graphics2D g2, float cx, float cy, float d) {
+        g2.setFont(Theme.font(Font.BOLD, 10));
+        Cosmetic hat = pet.getItem(Cosmetic.Slot.HAT);
+        Cosmetic glasses = pet.getItem(Cosmetic.Slot.GLASSES);
+        Cosmetic neck = pet.getItem(Cosmetic.Slot.NECK);
+        if (hat != null) {
+            chip(g2, hat.getName(), cx, cy - d / 2 - 4, true);
+        }
+        if (glasses != null) {
+            chip(g2, glasses.getName(), cx - d * 0.42f, cy - d * 0.2f, true);
+        }
+        if (neck != null) {
+            chip(g2, neck.getName(), cx + d * 0.42f, cy + d * 0.36f, true);
+        }
     }
 
     private static void centered(Graphics2D g2, String text, float cx, float cy) {

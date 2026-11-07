@@ -3,16 +3,18 @@ package com.settlr.ui.screens;
 import com.settlr.model.Cosmetic;
 import com.settlr.model.Pet;
 import com.settlr.model.ShopItem;
+import com.settlr.ui.components.PetArt;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
 
 /**
  * The rounded "bubble" a Shop item sits in, with a small tag in the top-left (HAT, RARE...)
  * and an optional one in the top-right (Owned, NEW). The item's picture goes in the middle
- * later; for now the bubble is empty. The pet crate uses it too, with a dashed "?" look.
+ * later (pets already have theirs, from PetArt). The pet egg uses it too, with a dashed "?" look.
  */
 class ItemBubble extends JComponent {
 
@@ -30,7 +32,8 @@ class ItemBubble extends JComponent {
     private Color cornerTagColor;
     private Color outline;  // null = the normal thin edge
     private boolean glow;
-    private boolean mystery; // the pet crate's dashed "?" box
+    private boolean mystery; // the pet egg
+    private BufferedImage picture; // the pet's picture, if it has one
     private boolean hover;
 
     ItemBubble(int arc) {
@@ -44,13 +47,14 @@ class ItemBubble extends JComponent {
         b.tag = item.getTag();
         if (item instanceof Pet) {
             b.tagColor = rarityColor(((Pet) item).getRarity());
+            b.picture = PetArt.of((Pet) item);
         } else if (!(item instanceof Cosmetic)) {
             b.tagColor = TAG_TEXT;
         }
         return b;
     }
 
-    /** The pet crate's box: dashed gold edge and a big "?". */
+    /** The pet egg: its picture on its own, or a dashed gold box with a "?" if the picture is missing. */
     static ItemBubble mystery(int arc) {
         ItemBubble b = new ItemBubble(arc);
         b.mystery = true;
@@ -101,6 +105,12 @@ class ItemBubble extends JComponent {
             }
         }
 
+        if (mystery && PetArt.egg() != null) {
+            float inset = Math.min(w, h) * 0.06f;
+            PetArt.draw(g2, PetArt.egg(), pad + inset, pad + inset, w - 2 * inset, h - 2 * inset);
+            g2.dispose();
+            return;
+        }
         if (mystery) {
             g2.setColor(new Color(201, 164, 110, 28));
             g2.fill(box);
@@ -122,6 +132,10 @@ class ItemBubble extends JComponent {
         g2.setColor(edge);
         g2.setStroke(new BasicStroke(outline != null || hover ? 1.5f : 1f));
         g2.draw(box);
+
+        if (picture != null) { // below the tag, with a little room around it
+            PetArt.draw(g2, picture, pad + w * 0.12f, pad + 30, w * 0.76f, h - 30 - 10);
+        }
 
         g2.setFont(Theme.font(Font.BOLD, 11));
         if (tag != null) {

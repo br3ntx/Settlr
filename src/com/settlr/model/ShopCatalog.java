@@ -5,15 +5,15 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Everything the Shop sells and every pet the crate can give. Change names and prices here;
+ * Everything the Shop sells and every pet an egg can give. Change names and prices here;
  * the codes are stored in the database, so don't rename a code once people own it.
  */
 public final class ShopCatalog {
 
-    /** What one pet crate costs. */
-    public static final int CRATE_PRICE = 150;
-    /** XP given back when the crate gives a pet you already have (half the crate). */
-    public static final int DUPLICATE_REFUND = CRATE_PRICE / 2;
+    /** What one pet egg costs. */
+    public static final int EGG_PRICE = 150;
+    /** XP given back when the egg gives a pet you already have (half the egg). */
+    public static final int DUPLICATE_REFUND = EGG_PRICE / 2;
 
     private static final List<Cosmetic> COSMETICS = List.of(
             new Cosmetic("HAT_PARTY", "Party hat", Cosmetic.Slot.HAT, 60),

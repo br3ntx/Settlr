@@ -30,9 +30,9 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Shop page (sidebar: Shop): your XP, the pet crate, and the hats and accessories you can buy.
- * Click an item to buy it; the pet crate gives a random pet. Pets you own show under "Owned".
- * The rules (prices, balance checks, the crate's odds) live in ShopService.
+ * Shop page (sidebar: Shop): your XP, the pet egg, and the hats and accessories you can buy.
+ * Click an item to buy it; the pet egg gives a random pet. Pets you own show under "Owned".
+ * The rules (prices, balance checks, the odds) live in ShopService.
  */
 public class ShopScreen extends BaseScreen {
 
@@ -45,7 +45,7 @@ public class ShopScreen extends BaseScreen {
     private final JLabel crumb = label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
     private final XpPill xpPill = new XpPill();
     private final JLabel messageLabel = new JLabel(" ");
-    private final RoundedButton openCrate = new RoundedButton("Open for " + ShopCatalog.CRATE_PRICE + " XP");
+    private final RoundedButton hatchButton = new RoundedButton("Hatch for " + ShopCatalog.EGG_PRICE + " XP");
     private final SegmentedControl filter = new SegmentedControl(FILTERS, i -> fillGrid());
     private final JPanel grid = new JPanel(new GridLayout(0, 4, 26, 22));
 
@@ -82,7 +82,7 @@ public class ShopScreen extends BaseScreen {
         messageLabel.setFont(Theme.font(Font.PLAIN, 12));
         messageLabel.setBorder(new EmptyBorder(4, 2, 4, 0));
         page.add(left(messageLabel));
-        page.add(left(buildCrateBanner()));
+        page.add(left(buildEggBanner()));
         page.add(Box.createVerticalStrut(22));
         page.add(left(filter));
         page.add(Box.createVerticalStrut(16));
@@ -151,7 +151,7 @@ public class ShopScreen extends BaseScreen {
         }
         if (items.isEmpty()) {
             grid.setLayout(new BorderLayout());
-            JLabel empty = label("Nothing here yet. Buy something or open a pet crate.", Font.PLAIN, 13,
+            JLabel empty = label("Nothing here yet. Buy something or hatch a pet egg.", Font.PLAIN, 13,
                     Theme.MUTED_TEXT);
             empty.setBorder(new EmptyBorder(30, 2, 0, 0));
             grid.add(empty, BorderLayout.NORTH);
@@ -175,8 +175,8 @@ public class ShopScreen extends BaseScreen {
         });
     }
 
-    private void openCrate() {
-        ShopDialog.crate(this, balance, this::reload);
+    private void hatchEgg() {
+        ShopDialog.egg(this, balance, this::reload);
     }
 
     private void showMessage(String text, boolean error) {
@@ -188,7 +188,7 @@ public class ShopScreen extends BaseScreen {
     //  Pieces
     // =====================================================================
 
-    private JComponent buildCrateBanner() {
+    private JComponent buildEggBanner() {
         JPanel banner = new JPanel(new BorderLayout(26, 0)) {
             @Override
             protected void paintComponent(Graphics g) {
@@ -216,7 +216,7 @@ public class ShopScreen extends BaseScreen {
         }
         odds.append("a pet you already have gives ").append(ShopCatalog.DUPLICATE_REFUND).append(" XP back");
         JPanel text = vertical();
-        text.add(left(label("Pet crate", Font.BOLD, 20, Theme.TEXT)));
+        text.add(left(label("Pet egg", Font.BOLD, 20, Theme.TEXT)));
         text.add(Box.createVerticalStrut(6));
         text.add(left(label("Get a random pet to wear your hats and accessories.", Font.PLAIN, 13,
                 new Color(0xB5BFBC))));
@@ -230,12 +230,12 @@ public class ShopScreen extends BaseScreen {
         textHolder.add(text, c);
         banner.add(textHolder, BorderLayout.CENTER);
 
-        openCrate.setArc(RoundedButton.PILL);
-        openCrate.setFont(Theme.font(Font.BOLD, 14));
-        openCrate.setPreferredSize(new Dimension(
-                openCrate.getFontMetrics(openCrate.getFont()).stringWidth(openCrate.getText()) + 52, 44));
-        openCrate.addActionListener(e -> openCrate());
-        banner.add(centered(openCrate), BorderLayout.EAST);
+        hatchButton.setArc(RoundedButton.PILL);
+        hatchButton.setFont(Theme.font(Font.BOLD, 14));
+        hatchButton.setPreferredSize(new Dimension(
+                hatchButton.getFontMetrics(hatchButton.getFont()).stringWidth(hatchButton.getText()) + 52, 44));
+        hatchButton.addActionListener(e -> hatchEgg());
+        banner.add(centered(hatchButton), BorderLayout.EAST);
         return fitHeight(banner);
     }
 

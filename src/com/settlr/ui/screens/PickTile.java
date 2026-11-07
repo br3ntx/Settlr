@@ -1,5 +1,6 @@
 package com.settlr.ui.screens;
 
+import com.settlr.ui.components.PetArt;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
@@ -10,6 +11,7 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.RoundRectangle2D;
+import java.awt.image.BufferedImage;
 
 /**
  * A pickable tile for the pet popups: a bubble where the item's picture will go, with its
@@ -24,9 +26,15 @@ class PickTile extends JPanel {
     private final Bubble bubble;
 
     PickTile(String name, Look look, String tag, Color tagColor, int bubbleHeight, Runnable onPick) {
+        this(name, look, null, tag, tagColor, bubbleHeight, onPick);
+    }
+
+    /** With a picture (a pet's) in the bubble instead of the dashed placeholder. */
+    PickTile(String name, Look look, BufferedImage picture, String tag, Color tagColor, int bubbleHeight,
+             Runnable onPick) {
         super(new BorderLayout(0, 6));
         setOpaque(false);
-        bubble = new Bubble(look, tag, tagColor);
+        bubble = new Bubble(look, picture, tag, tagColor);
         bubble.setPreferredSize(new Dimension(60, bubbleHeight));
         add(bubble, BorderLayout.CENTER);
         JLabel label = new JLabel(name, SwingConstants.CENTER);
@@ -49,13 +57,15 @@ class PickTile extends JPanel {
 
     private static final class Bubble extends JComponent {
         private final Look look;
+        private final BufferedImage picture;
         private final String tag;
         private final Color tagColor;
         boolean picked;
         boolean hover;
 
-        Bubble(Look look, String tag, Color tagColor) {
+        Bubble(Look look, BufferedImage picture, String tag, Color tagColor) {
             this.look = look;
+            this.picture = picture;
             this.tag = tag;
             this.tagColor = tagColor;
         }
@@ -77,7 +87,10 @@ class PickTile extends JPanel {
             float cx = pad + w / 2, cy = pad + h / 2 + (tag == null ? 0 : 6);
             float s = Math.min(w, h) * 0.42f;
             Color faint = new Color(232, 217, 205, 80);
-            if (look == Look.NONE) {
+            if (picture != null) {
+                float top = pad + (tag == null ? 8 : 28);
+                PetArt.draw(g2, picture, pad + w * 0.14f, top, w * 0.72f, pad + h - 8 - top);
+            } else if (look == Look.NONE) {
                 g2.setColor(faint);
                 g2.setStroke(new BasicStroke(2f));
                 g2.draw(new Ellipse2D.Float(cx - s / 2, cy - s / 2, s, s));

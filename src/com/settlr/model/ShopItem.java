@@ -2,7 +2,7 @@ package com.settlr.model;
 
 /**
  * Something in the Shop. Two kinds (inheritance): a Cosmetic you buy with XP, and a Pet
- * you can only get from the pet crate. Items are fixed in ShopCatalog; the database only
+ * you can only get from the pet egg. Items are fixed in ShopCatalog; the database only
  * stores their code next to who owns them.
  */
 public abstract class ShopItem {

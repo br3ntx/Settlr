@@ -398,8 +398,8 @@ public class HomeScreen extends BaseScreen {
         if (shownCode == null) {
             area.add(center(label("No pet yet", Font.BOLD, 22, Theme.TEXT)));
             area.add(Box.createVerticalStrut(4));
-            boolean enough = balance >= com.settlr.model.ShopCatalog.CRATE_PRICE;
-            area.add(left(fitHeight(lines("Open a pet crate in the Shop to get one." + (enough ? " You have enough XP!" : ""),
+            boolean enough = balance >= com.settlr.model.ShopCatalog.EGG_PRICE;
+            area.add(left(fitHeight(lines("Hatch a pet egg in the Shop to get one." + (enough ? " You have enough XP!" : ""),
                     13, Theme.MUTED_TEXT, Math.min(centerWidth - 10, 300), true))));
             area.add(Box.createVerticalStrut(16));
             area.add(center(bigButton("Go to Shop", () -> Navigator.getInstance().show(Navigator.SHOP))));
@@ -413,9 +413,7 @@ public class HomeScreen extends BaseScreen {
             figure.setPet(shown);
             area.add(center(fitted(shown.getDisplayName(), 26, Theme.TEXT, centerWidth)));
             area.add(Box.createVerticalStrut(2));
-            area.add(center(label("<html>" + shown.getPet().getName() + DOT + "<b><font color='"
-                    + PetEditDialog.hex(ItemBubble.rarityColor(shown.getPet().getRarity())) + "'>"
-                    + shown.getPet().getRarity().getLabel() + "</font></b></html>", Font.PLAIN, 13, Theme.MUTED_TEXT)));
+            area.add(center(label(PetEditDialog.kindHtml(shown), Font.PLAIN, 13, Theme.MUTED_TEXT)));
             area.add(Box.createVerticalStrut(12));
             String feeling = (mood.isHappy() ? "happy" : "sad") + ": " + mood.getReason();
             MoodPill moodPill = new MoodPill(shown.getDisplayName() + " is " + feeling, mood.isHappy());

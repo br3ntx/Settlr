@@ -16,7 +16,7 @@ USE settlr_db;
 -- TRUNCATE activity_log; TRUNCATE payments; TRUNCATE expense_shares; TRUNCATE expenses;
 -- TRUNCATE recurring_bill_members; TRUNCATE recurring_bills; TRUNCATE swap_requests;
 -- TRUNCATE task_assignments; TRUNCATE tasks; TRUNCATE household_members;
--- TRUNCATE households; TRUNCATE users;
+-- TRUNCATE households; TRUNCATE owned_items; TRUNCATE xp_transactions; TRUNCATE users;
 -- SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---------------------------------------------------------------- accounts
@@ -118,6 +118,12 @@ INSERT INTO recurring_bills (bill_id, household_id, title, category, amount, pai
 INSERT INTO recurring_bill_members (bill_id, user_id) VALUES
   (1, 1), (1, 2), (1, 3), (1, 4), (1, 5),
   (2, 1), (2, 2), (2, 3), (2, 4), (2, 5);
+
+-- -------------------------------------------------------------------- pets
+-- Everyone starts with the Dog so Home shows a pet (more come from pet eggs in the Shop).
+INSERT INTO owned_items (user_id, item_code) VALUES
+  (1, 'PET_DOG'), (2, 'PET_DOG'), (3, 'PET_DOG'), (4, 'PET_DOG'), (5, 'PET_DOG');
+UPDATE users SET active_pet = 'PET_DOG' WHERE user_id BETWEEN 1 AND 5;
 
 -- ---------------------------------------------------------------- expenses
 INSERT INTO expenses (expense_id, household_id, bill_id, title, category, amount, paid_by,

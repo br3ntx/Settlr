@@ -21,19 +21,19 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * The Shop's rules: what things cost, buying a hat or accessory, and opening the pet crate.
+ * The Shop's rules: what things cost, buying a hat or accessory, and opening the pet egg.
  * XP is earned by finishing tasks and paying on time (see ShopDao), and spent here.
  * Every purchase checks the balance and saves in one transaction.
  */
 public class ShopService {
 
-    /** What came out of a pet crate. */
-    public static final class CrateResult {
+    /** What hatched from a pet egg. */
+    public static final class HatchResult {
         private final Pet pet;
         private final boolean duplicate;
         private final int balanceAfter;
 
-        CrateResult(Pet pet, boolean duplicate, int balanceAfter) {
+        HatchResult(Pet pet, boolean duplicate, int balanceAfter) {
             this.pet = pet;
             this.duplicate = duplicate;
             this.balanceAfter = balanceAfter;
@@ -58,7 +58,7 @@ public class ShopService {
         this(new SecureRandom());
     }
 
-    /** For tests: pass a seeded Random to get the same crate results every time. */
+    /** For tests: pass a seeded Random to get the same egg results every time. */
     ShopService(Random random) {
         this.random = random;
     }
@@ -95,19 +95,19 @@ public class ShopService {
     }
 
     /**
-     * Opens a pet crate: picks a rarity by its weight, then a pet of that rarity.
+     * Hatches a pet egg: picks a rarity by its weight, then a pet of that rarity.
      * A pet you already have gives half the price back instead.
      */
-    public CrateResult openCrate() throws SettlrException {
+    public HatchResult hatchEgg() throws SettlrException {
         int userId = me().getId();
         Pet pet = rollPet();
         return runInTransaction(c -> {
             shopDao.lockUser(c, userId);
             int balance = shopDao.findBalance(c, userId);
-            requireEnough(balance, ShopCatalog.CRATE_PRICE);
-            shopDao.insertTransaction(c, userId, -ShopCatalog.CRATE_PRICE, "Opened a pet crate");
+            requireEnough(balance, ShopCatalog.EGG_PRICE);
+            shopDao.insertTransaction(c, userId, -ShopCatalog.EGG_PRICE, "Hatched a pet egg");
             boolean duplicate = shopDao.findOwnedCodes(c, userId).contains(pet.getCode());
-            int after = balance - ShopCatalog.CRATE_PRICE;
+            int after = balance - ShopCatalog.EGG_PRICE;
             if (duplicate) {
                 shopDao.insertTransaction(c, userId, ShopCatalog.DUPLICATE_REFUND,
                         "Already had the " + pet.getName());
@@ -115,11 +115,11 @@ public class ShopService {
             } else {
                 shopDao.insertOwned(c, userId, pet.getCode());
             }
-            return new CrateResult(pet, duplicate, after);
+            return new HatchResult(pet, duplicate, after);
         });
     }
 
-    /** Chance of each rarity, as a percent, for the crate's odds line. */
+    /** Chance of each rarity, as a percent, for the odds line. */
     public static int chanceOf(Pet.Rarity rarity) {
         int total = 0;
         for (Pet.Rarity r : Pet.Rarity.values()) {

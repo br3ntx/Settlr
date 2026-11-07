@@ -18,7 +18,7 @@ import java.awt.*;
 /**
  * The Shop's popups:
  *   - buy(...)   "Buy Crown?" with the price and what you'll have left, or how much more XP you need
- *   - crate(...) "Open a pet crate?", then what came out (a new pet, or one you had and some XP back)
+ *   - egg(...)   "Hatch a pet egg?", then what came out (a new pet, or one you had and some XP back)
  * onChanged runs after anything was bought, so the Shop page can reload.
  */
 public final class ShopDialog extends ModalPopup {
@@ -37,10 +37,10 @@ public final class ShopDialog extends ModalPopup {
         d.showOver(over);
     }
 
-    /** Opens "Open a pet crate?". */
-    public static void crate(Component over, int balance, Runnable onChanged) {
+    /** Opens "Hatch a pet egg?". */
+    public static void egg(Component over, int balance, Runnable onChanged) {
         ShopDialog d = new ShopDialog(balance, onChanged);
-        d.showCrateConfirm();
+        d.showEggConfirm();
         d.showOver(over);
     }
 
@@ -86,18 +86,18 @@ public final class ShopDialog extends ModalPopup {
         finish();
     }
 
-    private void showCrateConfirm() {
-        int price = ShopCatalog.CRATE_PRICE;
+    private void showEggConfirm() {
+        int price = ShopCatalog.EGG_PRICE;
         boolean enough = balance >= price;
         start(null);
         bubble(ItemBubble.mystery(30), 150, 130);
-        title("Open a pet crate?");
+        title("Hatch a pet egg?");
         line(ShopScreen.xp(price) + ShopScreen.DOT + (enough
                 ? "you'll have " + ShopScreen.xp(balance - price) + " left"
                 : "you have " + ShopScreen.xp(balance)), Theme.MUTED_TEXT);
         JLabel error = errorLine();
 
-        RoundedButton main = new RoundedButton(enough ? "Open for " + ShopScreen.xp(price)
+        RoundedButton main = new RoundedButton(enough ? "Hatch for " + ShopScreen.xp(price)
                 : "Need " + (price - balance) + " more XP");
         main.setEnabled(enough);
         main.addActionListener(e -> open(main, error));
@@ -107,9 +107,9 @@ public final class ShopDialog extends ModalPopup {
 
     private void open(RoundedButton main, JLabel error) {
         main.setEnabled(false);
-        ShopService.CrateResult result;
+        ShopService.HatchResult result;
         try {
-            result = shopService.openCrate();
+            result = shopService.hatchEgg();
         } catch (SettlrException ex) {
             showError(error, ex);
             main.setEnabled(true);
@@ -117,12 +117,12 @@ public final class ShopDialog extends ModalPopup {
         }
         balance = result.getBalanceAfter();
         onChanged.run();
-        showCrateResult(result);
+        showEggResult(result);
     }
 
-    private void showCrateResult(ShopService.CrateResult result) {
+    private void showEggResult(ShopService.HatchResult result) {
         Pet pet = result.getPet();
-        start("PET CRATE");
+        start("PET EGG");
         ItemBubble bubble = ItemBubble.of(pet, 30);
         Color rarity = ItemBubble.rarityColor(pet.getRarity());
         if (result.isDuplicate()) {
@@ -134,18 +134,18 @@ public final class ShopDialog extends ModalPopup {
         bubble(bubble, 186, 150);
         if (result.isDuplicate()) {
             title("You already have " + article(pet.getName()) + " " + pet.getName());
-            line("+" + ShopScreen.xp(ShopCatalog.DUPLICATE_REFUND) + " back, so this crate cost "
-                    + ShopScreen.xp(ShopCatalog.CRATE_PRICE - ShopCatalog.DUPLICATE_REFUND) + ".", Theme.MINT);
+            line("+" + ShopScreen.xp(ShopCatalog.DUPLICATE_REFUND) + " back, so this egg cost "
+                    + ShopScreen.xp(ShopCatalog.EGG_PRICE - ShopCatalog.DUPLICATE_REFUND) + ".", Theme.MINT);
         } else {
             title("You got " + article(pet.getName()) + " " + pet.getName() + "!");
             line("It can wear any hat or accessory you own.", Theme.MUTED_TEXT);
         }
         JLabel error = errorLine();
 
-        boolean enough = balance >= ShopCatalog.CRATE_PRICE;
+        boolean enough = balance >= ShopCatalog.EGG_PRICE;
         RoundedButton again = new RoundedButton(enough
-                ? "Open another" + ShopScreen.DOT + ShopScreen.xp(ShopCatalog.CRATE_PRICE)
-                : "Need " + (ShopCatalog.CRATE_PRICE - balance) + " more XP");
+                ? "Hatch another" + ShopScreen.DOT + ShopScreen.xp(ShopCatalog.EGG_PRICE)
+                : "Need " + (ShopCatalog.EGG_PRICE - balance) + " more XP");
         again.setEnabled(enough);
         again.addActionListener(e -> open(again, error));
         buttons("Done", this::close, again);

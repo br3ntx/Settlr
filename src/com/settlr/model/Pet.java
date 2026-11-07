@@ -1,9 +1,9 @@
 package com.settlr.model;
 
-/** A pet from the pet crate. Rarer pets come out of the crate less often. */
+/** A pet from the pet egg. Rarer pets hatch from the egg less often. */
 public class Pet extends ShopItem {
 
-    /** How likely a pet is to come out of the crate (weights add up to 100). */
+    /** How likely a pet is to hatch from the egg (weights add up to 100). */
     public enum Rarity {
         COMMON(70), RARE(25), EPIC(5);
 
@@ -13,7 +13,7 @@ public class Pet extends ShopItem {
             this.weight = weight;
         }
 
-        /** Chance out of 100 that the crate gives a pet of this rarity. */
+        /** Chance out of 100 that the egg gives a pet of this rarity. */
         public int getWeight() { return weight; }
 
         public String getLabel() {

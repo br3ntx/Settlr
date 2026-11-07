@@ -3,6 +3,7 @@ package com.settlr.ui.screens;
 import com.settlr.model.OwnedPet;
 import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.GlassCard;
+import com.settlr.ui.components.PetArt;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.theme.Theme;
 
@@ -61,7 +62,8 @@ public final class ChangePetDialog extends ModalPopup {
         grid.setOpaque(false);
         for (OwnedPet p : pets) {
             String code = p.getPet().getCode();
-            PickTile t = new PickTile(p.getDisplayName(), PickTile.Look.PET, p.getPet().getRarity().name(),
+            PickTile t = new PickTile(p.getDisplayName(), PickTile.Look.PET, PetArt.of(p.getPet()),
+                    p.getPet().getRarity().name(),
                     ItemBubble.rarityColor(p.getPet().getRarity()), 112, () -> pick(code, p.getDisplayName()));
             t.putClientProperty("code", code);
             t.putClientProperty("name", p.getDisplayName());
@@ -76,7 +78,7 @@ public final class ChangePetDialog extends ModalPopup {
         fixed(grid, rows * 136 + (rows - 1) * 12);
         card.add(grid);
 
-        JLabel more = ShopScreen.label("<html>Get more pets from the pet crate in the "
+        JLabel more = ShopScreen.label("<html>Get more pets by hatching eggs in the "
                 + "<b><font color='#E8D9CD'>Shop</font></b>.</html>", Font.PLAIN, 12, Theme.MUTED_TEXT);
         card.add(Box.createVerticalStrut(8));
         fixed(more, 18);

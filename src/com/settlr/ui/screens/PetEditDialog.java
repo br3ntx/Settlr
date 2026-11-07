@@ -164,9 +164,7 @@ public final class PetEditDialog extends ModalPopup {
         OwnedPet p = current();
         figure.setPet(p);
         fillNameRow();
-        kindLabel.setText("<html>" + p.getPet().getName() + ShopScreen.DOT + "<b><font color='"
-                + hex(ItemBubble.rarityColor(p.getPet().getRarity())) + "'>" + p.getPet().getRarity().getLabel()
-                + "</font></b></html>");
+        kindLabel.setText(kindHtml(p));
         fillTiles();
     }
 
@@ -310,6 +308,14 @@ public final class PetEditDialog extends ModalPopup {
         comp.setMaximumSize(d);
         comp.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.add(comp);
+    }
+
+    /** "Bunny \u00B7 Rare" for a named pet; just "Rare pet" when it's still called "Bunny". */
+    static String kindHtml(OwnedPet p) {
+        String rarity = "<b><font color='" + hex(ItemBubble.rarityColor(p.getPet().getRarity())) + "'>"
+                + p.getPet().getRarity().getLabel() + "</font></b>";
+        return "<html>" + (p.getName() == null ? rarity + " pet" : p.getPet().getName() + ShopScreen.DOT + rarity)
+                + "</html>";
     }
 
     static String hex(Color c) {

@@ -180,7 +180,7 @@ CREATE TABLE activity_log (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
--- Shop: hats and accessories bought with XP, and pets from the pet crate.
+-- Shop: hats and accessories bought with XP, and pets from the pet egg.
 -- What each item is (name, price, rarity) lives in Java (ShopCatalog); this only records who owns what.
 CREATE TABLE owned_items (
     user_id      INT         NOT NULL,

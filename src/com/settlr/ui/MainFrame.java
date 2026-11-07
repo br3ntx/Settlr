@@ -4,6 +4,7 @@ import com.settlr.ui.screens.ExpensesScreen;
 import com.settlr.ui.screens.HouseholdScreen;
 import com.settlr.ui.screens.HouseholdSetupScreen;
 import com.settlr.ui.screens.LoginScreen;
+import com.settlr.ui.components.PetArt;
 import com.settlr.ui.screens.HomeScreen;
 import com.settlr.ui.screens.ProfileScreen;
 import com.settlr.ui.screens.TasksScreen;
@@ -24,6 +25,7 @@ public class MainFrame extends JFrame {
 
     public MainFrame() {
         super("Settlr");
+        PetArt.preloadInBackground(); // the pet pictures take a moment to prepare
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1100, 700);
         setMinimumSize(new Dimension(900, 600));
