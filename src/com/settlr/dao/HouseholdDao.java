@@ -13,7 +13,7 @@ import java.sql.Statement;
 /** Reads and writes the households table. */
 public class HouseholdDao implements Dao<Household> {
 
-    private static final String COLUMNS = "household_id, name, invite_code, created_by, hide_shame_ranks";
+    private static final String COLUMNS = "household_id, name, invite_code, created_by";
 
     @Override
     public Household findById(int id) throws DataAccessException {
@@ -29,13 +29,12 @@ public class HouseholdDao implements Dao<Household> {
 
     @Override
     public int insert(Household h) throws DataAccessException {
-        String sql = "INSERT INTO households (name, invite_code, created_by, hide_shame_ranks) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO households (name, invite_code, created_by) VALUES (?, ?, ?)";
         try (Connection c = DBConnection.getInstance().getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, h.getName());
             ps.setString(2, h.getInviteCode());
             ps.setInt(3, h.getCreatedBy());
-            ps.setBoolean(4, h.isHideShameRanks());
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 keys.next();
@@ -48,16 +47,15 @@ public class HouseholdDao implements Dao<Household> {
         }
     }
 
-    /** Saves the name, invite code and hide-shame-ranks setting. */
+    /** Saves the household name and invite code. */
     @Override
     public void update(Household h) throws DataAccessException {
-        String sql = "UPDATE households SET name = ?, invite_code = ?, hide_shame_ranks = ? WHERE household_id = ?";
+        String sql = "UPDATE households SET name = ?, invite_code = ? WHERE household_id = ?";
         try (Connection c = DBConnection.getInstance().getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, h.getName());
             ps.setString(2, h.getInviteCode());
-            ps.setBoolean(3, h.isHideShameRanks());
-            ps.setInt(4, h.getId());
+            ps.setInt(3, h.getId());
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new DataAccessException("Could not save the household.", e);
@@ -95,7 +93,6 @@ public class HouseholdDao implements Dao<Household> {
                 rs.getInt("household_id"),
                 rs.getString("name"),
                 rs.getString("invite_code"),
-                rs.getInt("created_by"),
-                rs.getBoolean("hide_shame_ranks"));
+                rs.getInt("created_by"));
     }
 }

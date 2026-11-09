@@ -3,8 +3,8 @@ package com.settlr.model;
 import java.time.LocalDateTime;
 
 /**
- * One actual due date of a task, with one assignee. The rankings read these
- * rows, so the DONE / DONE_LATE decision lives here in one place.
+ * One actual due date of a task, with one assignee. The DONE / DONE_LATE
+ * decision lives here in one place.
  *
  * The three "display" fields are not columns of task_assignments. TaskAssignmentDao
  * fills them with a JOIN so screens can show titles and names without extra queries.

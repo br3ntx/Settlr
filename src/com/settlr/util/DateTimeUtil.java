@@ -9,9 +9,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.Locale;
 
 /**
- * Date and time helpers, so every screen shows dates the same way and every
- * ranking uses the same week and month boundaries.
- * Settlr weeks start on Monday 00:00 (master doc section 4).
+ * Date and time helpers, so every screen shows dates the same way.
  */
 public final class DateTimeUtil {
 
@@ -66,8 +64,4 @@ public final class DateTimeUtil {
         return anyDay.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay();
     }
 
-    /** The 1st of this day's month at 00:00. */
-    public static LocalDateTime monthStart(LocalDate anyDay) {
-        return anyDay.withDayOfMonth(1).atStartOfDay();
-    }
 }

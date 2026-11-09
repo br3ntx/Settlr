@@ -29,6 +29,6 @@ public class Main {
             MainFrame frame = new MainFrame();
             Navigator.getInstance().show(Navigator.LOGIN);
             frame.setVisible(true);
-        });
+        });   
     }
 }

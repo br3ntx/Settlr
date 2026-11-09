@@ -133,7 +133,7 @@ public class TaskDao implements Dao<Task> {
 
     /**
      * "Deleting" a task archives it (master doc 3.3): the row stays so past
-     * assignments and rankings keep working.
+     * assignments keep working.
      */
     @Override
     public void delete(int id) throws DataAccessException {

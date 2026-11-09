@@ -16,7 +16,7 @@ public final class Theme {
 public static final Color PRIMARY       = new Color(0xE8D9CD); // beige: buttons, selected sidebar item
 public static final Color PRIMARY_DARK  = new Color(0xD4C3B5); // beige when hovered/pressed
 public static final Color ON_PRIMARY    = new Color(0x1F2B2B); // NEW: text on beige buttons
-public static final Color ACCENT        = new Color(0xF2B630); // trophy gold (leaderboard)
+public static final Color ACCENT        = new Color(0xF2B630); // warm gold accent
 public static final Color WARNING       = new Color(0xE8862A);
 public static final Color DANGER        = new Color(0xE0605A); // a bit brighter so it shows on dark
 public static final Color BACKGROUND    = new Color(0x223030); // page background

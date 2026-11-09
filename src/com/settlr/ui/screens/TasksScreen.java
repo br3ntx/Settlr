@@ -34,6 +34,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -133,6 +134,7 @@ public class TasksScreen extends BaseScreen {
         add.setFont(Theme.font(Font.BOLD, 13));
         add.setPreferredSize(new Dimension(130, 38));
         add.addActionListener(e -> TaskFormDialog.open(this, task -> {
+            weekOffset = weeksFromCurrent(task.getFirstDueAt().toLocalDate());
             reload();
             showMessage("Added \"" + task.getTitle() + "\".", false);
         }));
@@ -271,6 +273,12 @@ public class TasksScreen extends BaseScreen {
 
     private LocalDate weekStart() {
         return DateTimeUtil.weekStart(LocalDate.now()).toLocalDate().plusWeeks(weekOffset);
+    }
+
+    private int weeksFromCurrent(LocalDate date) {
+        LocalDate currentWeek = DateTimeUtil.weekStart(LocalDate.now()).toLocalDate();
+        LocalDate taskWeek = DateTimeUtil.weekStart(date).toLocalDate();
+        return (int) ChronoUnit.WEEKS.between(currentWeek, taskWeek);
     }
 
     private void loadAttention() throws SettlrException {

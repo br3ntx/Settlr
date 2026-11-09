@@ -21,8 +21,8 @@ import java.util.List;
  * It doesn't implement Dao<Membership> because a membership has no single id;
  * it is identified by the pair (household_id, user_id).
  *
- * Removed members are never deleted, only marked inactive, so their old tasks,
- * payments and rankings still make sense (master doc 3.2).
+ * Removed members are never deleted, only marked inactive, so their old tasks
+ * and payments remain available.
  */
 public class MembershipDao {
 

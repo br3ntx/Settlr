@@ -1,6 +1,6 @@
 # Settlr
 
-A roommate/dormmate chore divider and expense tracker with weekly leaderboards.
+A roommate/dormmate chore divider and expense tracker.
 Built with Java Swing + MySQL (JDBC) for our OOP finals.
 
 ## Setup
@@ -20,7 +20,6 @@ Built with Java Swing + MySQL (JDBC) for our OOP finals.
 | `src/com/settlr/dao` | All SQL (one DAO per table group) |
 | `src/com/settlr/service` | Rules: auth, tasks, expenses, catch-up |
 | `src/com/settlr/split` | SplitStrategy and EqualSplit |
-| `src/com/settlr/ranking` | Leaderboard categories |
 | `src/com/settlr/util` | DBConnection, Session, dates, money, hashing |
 | `src/com/settlr/exception` | SettlrException and subclasses |
 | `src/com/settlr/ui` | MainFrame, Navigator, BaseScreen, Sidebar |

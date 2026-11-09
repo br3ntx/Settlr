@@ -19,7 +19,6 @@ CREATE TABLE households (
     name              VARCHAR(60) NOT NULL,
     invite_code       CHAR(6)     NOT NULL UNIQUE,
     created_by        INT         NOT NULL,
-    hide_shame_ranks  BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at        DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES users(user_id)
 );

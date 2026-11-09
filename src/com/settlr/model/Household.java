@@ -14,15 +14,13 @@ public class Household {
     private String name;
     private String inviteCode;
     private int createdBy;
-    private boolean hideShameRanks;
 
     public Household(int id, String name, String inviteCode,
-                     int createdBy, boolean hideShameRanks) {
+                     int createdBy) {
         setId(id);
         setName(name);
         setInviteCode(inviteCode);
         setCreatedBy(createdBy);
-        setHideShameRanks(hideShameRanks);
     }
 
     public int getId() { return id; }
@@ -59,10 +57,6 @@ public class Household {
         if (createdBy <= 0) throw new IllegalArgumentException("Creator user id must be positive.");
         this.createdBy = createdBy;
     }
-
-    public boolean isHideShameRanks() { return hideShameRanks; }
-
-    public void setHideShameRanks(boolean hideShameRanks) { this.hideShameRanks = hideShameRanks; }
 
     /** True if code is exactly 6 characters, all from the allowed alphabet. */
     public static boolean isValidInviteCode(String code) {

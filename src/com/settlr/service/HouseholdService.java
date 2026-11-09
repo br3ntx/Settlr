@@ -82,7 +82,7 @@ public class HouseholdService {
         }
         requireNoHousehold(user.getId());
 
-        Household household = new Household(0, trimmed, generateUniqueCode(), user.getId(), false);
+        Household household = new Household(0, trimmed, generateUniqueCode(), user.getId());
         household.setId(householdDao.insert(household));
 
         membershipDao.insert(new Membership(household.getId(), user.getId(), Role.ADMIN,
@@ -192,7 +192,7 @@ public class HouseholdService {
     }
 
     /**
-     * Admin only. Marks a member inactive (history and rankings are kept), gives their
+     * Admin only. Marks a member inactive, gives their
      * upcoming tasks to someone else, takes them off the monthly bills and makes a new
      * invite code so they can't rejoin with the old one. Returns the new code.
      * Money they owe stays on Expenses; the screen warns the Admin about it first.
@@ -298,22 +298,6 @@ public class HouseholdService {
             throw e;
         }
         return newCode;
-    }
-
-    /** Admin only. Shows or hides the five "shame" rankings. */
-    public void setHideShameRanks(boolean hide) throws SettlrException {
-        requireLogin();
-        requireAdmin();
-
-        Household household = currentHousehold();
-        boolean old = household.isHideShameRanks();
-        household.setHideShameRanks(hide);
-        try {
-            householdDao.update(household);
-        } catch (DataAccessException e) {
-            household.setHideShameRanks(old);
-            throw e;
-        }
     }
 
     // ---------- helpers ----------

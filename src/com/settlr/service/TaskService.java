@@ -382,7 +382,7 @@ public class TaskService {
         return mine;
     }
 
-    /** Credits the assignee even when an Admin clicked, because rankings read assignee_id. */
+    /** Credits the assignee even when an Admin clicked. */
     private void logCompletion(TaskAssignment a, LocalDateTime now) throws SettlrException {
         String message = a.getAssigneeName() + " completed " + a.getTaskTitle();
         ActivityType type = ActivityType.TASK_DONE;
