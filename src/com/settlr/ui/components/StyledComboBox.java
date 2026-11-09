@@ -16,6 +16,9 @@ import java.util.function.Function;
 /**
  * Pill-shaped dropdown with a beige outline and a chevron (Figma "Category", "Paid by").
  *
+ * ADAPTER pattern: the inner Renderer adapts any item type T to the text Swing's combo box
+ * shows, using the label function (e.g. ExpenseCategory::name), so no new class is needed per type.
+ *
  * @param <T> what the list holds, e.g. ExpenseCategory or User
  */
 public class StyledComboBox<T> extends JComboBox<T> {

@@ -39,6 +39,9 @@ import java.util.stream.Collectors;
  * Business rules for expenses and recurring bills: validates input, splits the amount
  * with a SplitStrategy, and saves an expense together with its shares in ONE transaction.
  * It never writes SQL; the DAOs do that. Payments (pay/confirm/reject) belong to PaymentService.
+ *
+ * FACADE pattern: screens make one call (addExpense) and never see the five DAOs or the
+ * transaction behind it. Every other service in this package plays the same role.
  */
 public class ExpenseService {
 

@@ -22,7 +22,10 @@ public class OwnedPet {
         this.pet = pet;
     }
 
-    /** A copy, so a popup can change it and throw the changes away on Cancel. */
+    /**
+     * PROTOTYPE pattern: a new OwnedPet is made by copying an existing one.
+     * PetEditDialog changes the copy, so Cancel just throws it away and the real pet is untouched.
+     */
     public OwnedPet copy() {
         OwnedPet c = new OwnedPet(pet);
         c.name = name;
