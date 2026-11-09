@@ -1,11 +1,10 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.SwapRequestDao;
 import com.settlr.dao.TaskAssignmentDao;
 import com.settlr.dao.TaskDao;
-import com.settlr.exception.AuthException;
-import com.settlr.exception.DataAccessException;
 import com.settlr.exception.NotFoundException;
 import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
@@ -17,11 +16,9 @@ import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
 import com.settlr.model.User;
-import com.settlr.util.DBConnection;
+import com.settlr.util.Transaction;
 import com.settlr.util.Session;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,22 +29,21 @@ import java.util.List;
  */
 public class SwapService {
 
-    private final SwapRequestDao swapDao = new SwapRequestDao();
-    private final TaskAssignmentDao assignmentDao = new TaskAssignmentDao();
-    private final TaskDao taskDao = new TaskDao();
-    private final MembershipDao membershipDao = new MembershipDao();
-    private final ActivityService activityService = new ActivityService();
+    private final Session session = Session.getInstance();
 
-    /** One step of a transaction; gets the shared connection. */
-    private interface TransactionBody {
-        void run(Connection c) throws SettlrException;
-    }
+    private static final String SAVE_FAILED = "Could not save your changes. Please try again.";
+
+    private final SwapRequestDao swapDao = DaoFactory.get().swaps();
+    private final TaskAssignmentDao assignmentDao = DaoFactory.get().assignments();
+    private final TaskDao taskDao = DaoFactory.get().tasks();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
+    private final ActivityService activityService = new ActivityService();
 
     // ---- public API (master doc 8.4) -----------------------------------
 
     /** The assignee of a PENDING assignment asks another active member to take it. */
     public void request(int assignmentId, int toUserId) throws SettlrException {
-        int userId = currentUser().getId();
+        int userId = session.requireUser().getId();
         TaskAssignment a = loadAssignmentOfHousehold(assignmentId);
 
         if (a.getAssigneeId() != userId) {
@@ -69,7 +65,7 @@ public class SwapService {
      * swap becomes ACCEPTED together, or not at all.
      */
     public void accept(int swapId) throws SettlrException {
-        int userId = currentUser().getId();
+        int userId = session.requireUser().getId();
         SwapRequest swap = loadPendingSwapForReceiver(swapId, userId);
         TaskAssignment a = loadAssignmentOfHousehold(swap.getAssignmentId());
         requireSwappable(a);
@@ -78,7 +74,7 @@ public class SwapService {
         a.setAssigneeId(userId);
         swap.setStatus(SwapStatus.ACCEPTED);
         swap.setRespondedAt(now);
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             assignmentDao.update(c, a);
             swapDao.update(c, swap);
         });
@@ -88,7 +84,7 @@ public class SwapService {
 
     /** The receiver says no: only the swap changes, the assignment stays. */
     public void decline(int swapId) throws SettlrException {
-        int userId = currentUser().getId();
+        int userId = session.requireUser().getId();
         SwapRequest swap = loadPendingSwapForReceiver(swapId, userId);
 
         swap.setStatus(SwapStatus.DECLINED);
@@ -98,12 +94,12 @@ public class SwapService {
 
     /** Every swap asked of the current user, newest first. */
     public List<SwapRequest> getIncoming() throws SettlrException {
-        return swapDao.findIncoming(currentUser().getId());
+        return swapDao.findIncoming(session.requireUser().getId());
     }
 
     /** Every swap the current user asked for, newest first. */
     public List<SwapRequest> getOutgoing() throws SettlrException {
-        return swapDao.findOutgoing(currentUser().getId());
+        return swapDao.findOutgoing(session.requireUser().getId());
     }
 
     // ---- validation ----------------------------------------------------
@@ -133,14 +129,14 @@ public class SwapService {
     private TaskAssignment loadAssignmentOfHousehold(int assignmentId) throws SettlrException {
         TaskAssignment a = assignmentDao.findById(assignmentId);
         Task task = (a == null) ? null : taskDao.findById(a.getTaskId());
-        if (task == null || task.getHouseholdId() != currentHouseholdId()) {
+        if (task == null || task.getHouseholdId() != session.requireHouseholdId()) {
             throw new NotFoundException("That task could not be found.");
         }
         return a;
     }
 
     private void requireActiveMember(int userId) throws SettlrException {
-        for (User member : membershipDao.findActiveMembers(currentHouseholdId())) {
+        for (User member : membershipDao.findActiveMembers(session.requireHouseholdId())) {
             if (member.getId() == userId) {
                 return;
             }
@@ -150,39 +146,4 @@ public class SwapService {
 
     // ---- session and transaction helpers -------------------------------
 
-    private User currentUser() throws SettlrException {
-        Session session = Session.getInstance();
-        if (!session.isLoggedIn()) {
-            throw new AuthException("Please log in first.");
-        }
-        return session.getCurrentUser();
-    }
-
-    private int currentHouseholdId() throws SettlrException {
-        currentUser();
-        if (Session.getInstance().getCurrentHousehold() == null) {
-            throw new PermissionDeniedException("Please create or join a household first.");
-        }
-        return Session.getInstance().getCurrentHousehold().getId();
-    }
-
-    /**
-     * Runs several DAO calls as one all-or-nothing unit (same helper as in
-     * TaskService; the service decides where a transaction starts and ends,
-     * the DAOs still hold every SQL statement).
-     */
-    private void runInTransaction(TransactionBody body) throws SettlrException {
-        try (Connection c = DBConnection.getInstance().getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                body.run(c);
-                c.commit();
-            } catch (SettlrException | RuntimeException e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (SQLException e) {
-            throw new DataAccessException("Could not save your changes. Please try again.");
-        }
-    }
 }

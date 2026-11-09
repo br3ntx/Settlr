@@ -5,6 +5,7 @@ import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.PetArt;
 import com.settlr.ui.components.RoundedButton;
+import com.settlr.ui.components.Ui;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
@@ -45,14 +46,14 @@ public final class ChangePetDialog extends ModalPopup {
 
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.add(ShopScreen.label("Change pet", Font.BOLD, 20, Theme.TEXT), BorderLayout.CENTER);
+        header.add(Ui.label("Change pet", Font.BOLD, 20, Theme.TEXT), BorderLayout.CENTER);
         JPanel closeHolder = new JPanel(new BorderLayout());
         closeHolder.setOpaque(false);
         closeHolder.add(createCloseButton(), BorderLayout.NORTH);
         header.add(closeHolder, BorderLayout.EAST);
         fixed(header, 32);
         card.add(header);
-        JLabel sub = ShopScreen.label("Your pet keeps its name and outfit when you switch back.",
+        JLabel sub = Ui.label("Your pet keeps its name and outfit when you switch back.",
                 Font.PLAIN, 12, Theme.MUTED_TEXT);
         card.add(Box.createVerticalStrut(2));
         fixed(sub, 18);
@@ -78,7 +79,7 @@ public final class ChangePetDialog extends ModalPopup {
         fixed(grid, rows * 136 + (rows - 1) * 12);
         card.add(grid);
 
-        JLabel more = ShopScreen.label("<html>Get more pets by hatching eggs in the "
+        JLabel more = Ui.label("<html>Get more pets by hatching eggs in the "
                 + "<b><font color='#E8D9CD'>Shop</font></b>.</html>", Font.PLAIN, 12, Theme.MUTED_TEXT);
         card.add(Box.createVerticalStrut(8));
         fixed(more, 18);

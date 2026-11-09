@@ -1,12 +1,11 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ExpenseDao;
 import com.settlr.dao.ExpenseShareDao;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.PaymentDao;
 import com.settlr.dao.RecurringBillDao;
-import com.settlr.exception.AuthException;
-import com.settlr.exception.DataAccessException;
 import com.settlr.exception.NotFoundException;
 import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
@@ -18,12 +17,10 @@ import com.settlr.model.RecurringBill;
 import com.settlr.model.User;
 import com.settlr.split.EqualSplit;
 import com.settlr.split.SplitStrategy;
-import com.settlr.util.DBConnection;
 import com.settlr.util.Session;
+import com.settlr.util.Transaction;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -45,11 +42,13 @@ import java.util.stream.Collectors;
  */
 public class ExpenseService {
 
-    private final ExpenseDao expenseDao = new ExpenseDao();
-    private final RecurringBillDao recurringBillDao = new RecurringBillDao();
-    private final ExpenseShareDao expenseShareDao = new ExpenseShareDao();
-    private final PaymentDao paymentDao = new PaymentDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final Session session = Session.getInstance();
+
+    private final ExpenseDao expenseDao = DaoFactory.get().expenses();
+    private final RecurringBillDao recurringBillDao = DaoFactory.get().recurringBills();
+    private final ExpenseShareDao expenseShareDao = DaoFactory.get().shares();
+    private final PaymentDao paymentDao = DaoFactory.get().payments();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
 
     // ---------- public API (signatures from master doc section 8.4) ----------
 
@@ -59,7 +58,7 @@ public class ExpenseService {
      */
     public Expense addExpense(Expense e, List<Integer> splitAmong, SplitStrategy strategy)
             throws SettlrException {
-        requireLoggedIn();
+        session.requireUser();
         if (e == null) {
             throw new ValidationException("Expense is required.");
         }
@@ -83,7 +82,7 @@ public class ExpenseService {
 
     /** Saves a recurring bill (and who it is split among) for the current household. */
     public RecurringBill createRecurringBill(RecurringBill b) throws SettlrException {
-        requireLoggedIn();
+        session.requireUser();
         if (b == null) {
             throw new ValidationException("Recurring bill is required.");
         }
@@ -107,7 +106,7 @@ public class ExpenseService {
      * shares has a confirmed payment (rule 3.5).
      */
     public void deleteExpense(int expenseId) throws SettlrException {
-        requireLoggedIn();
+        session.requireUser();
         Expense expense = expenseDao.findById(expenseId);
         int householdId = Session.getInstance().getCurrentHousehold().getId();
         // Another household's expense is reported as "not found" so its existence isn't leaked.
@@ -128,14 +127,14 @@ public class ExpenseService {
 
     /** Expenses of the current household, newest first. Pass null to include every category. */
     public List<Expense> getExpenses(ExpenseCategory filterOrNull) throws SettlrException {
-        requireLoggedIn();
+        session.requireUser();
         return expenseDao.findByHousehold(
                 Session.getInstance().getCurrentHousehold().getId(), filterOrNull);
     }
 
     /** Each expense's shares, keyed by expense id (the Expenses page shows "your share" from this). */
     public Map<Integer, List<ExpenseShare>> getSharesByExpense() throws SettlrException {
-        requireLoggedIn();
+        session.requireUser();
         Map<Integer, List<ExpenseShare>> byExpense = new HashMap<>();
         int householdId = Session.getInstance().getCurrentHousehold().getId();
         for (ExpenseShare share : expenseShareDao.findByHousehold(householdId)) {
@@ -167,12 +166,6 @@ public class ExpenseService {
     }
 
     // ---------- validation helpers ----------
-
-    private void requireLoggedIn() throws AuthException {
-        if (!Session.getInstance().isLoggedIn()) {
-            throw new AuthException("Please log in first.");
-        }
-    }
 
     private void validateAmount(BigDecimal amount) throws ValidationException {
         if (amount == null || amount.signum() <= 0) {
@@ -255,38 +248,17 @@ public class ExpenseService {
      * or nothing is. If billOrNull is given, its last_generated is updated in the same transaction.
      */
     private void saveExpenseWithShares(Expense expense, List<ExpenseShare> shares, RecurringBill billOrNull)
-            throws DataAccessException {
-        try (Connection con = DBConnection.getInstance().getConnection()) {
-            try {
-                con.setAutoCommit(false); // start the transaction
-                int expenseId = expenseDao.insert(con, expense);
-                expense.setId(expenseId);
-                for (ExpenseShare share : shares) {
-                    share.setExpenseId(expenseId); // the shares didn't know the id until now
-                    expenseShareDao.insert(con, share);
-                }
-                if (billOrNull != null) {
-                    recurringBillDao.updateLastGenerated(con, billOrNull.getId(), expense.getDueDate());
-                }
-                con.commit(); // make it permanent
-            } catch (DataAccessException | RuntimeException ex) {
-                rollback(con, ex);
-                throw ex;
-            } catch (SQLException ex) {
-                rollback(con, ex);
-                throw new DataAccessException("Could not save the expense.", ex);
+            throws SettlrException {
+        Transaction.run("Could not save the expense.", c -> {
+            int expenseId = expenseDao.insert(c, expense);
+            expense.setId(expenseId);
+            for (ExpenseShare share : shares) {
+                share.setExpenseId(expenseId); // the shares didn't know the id until now
+                expenseShareDao.insert(c, share);
             }
-        } catch (SQLException ex) {
-            throw new DataAccessException("Could not save the expense.", ex);
-        }
-    }
-
-    /** Undoes the transaction; if even the undo fails, keep that error attached to the first one. */
-    private void rollback(Connection con, Exception original) {
-        try {
-            con.rollback();
-        } catch (SQLException rollbackError) {
-            original.addSuppressed(rollbackError);
-        }
+            if (billOrNull != null) {
+                recurringBillDao.updateLastGenerated(c, billOrNull.getId(), expense.getDueDate());
+            }
+        });
     }
 }

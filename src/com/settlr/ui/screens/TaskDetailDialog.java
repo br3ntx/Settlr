@@ -11,6 +11,7 @@ import com.settlr.ui.components.AvatarLabel;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.StatusBadge;
+import com.settlr.ui.components.Ui;
 import com.settlr.ui.theme.Theme;
 import com.settlr.util.Session;
 
@@ -77,7 +78,7 @@ public class TaskDetailDialog extends ModalPopup {
         // title + points, close
         JPanel titleLine = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         titleLine.setOpaque(false);
-        titleLine.add(TasksScreen.label(a.getTaskTitle(), Font.BOLD, 21, Theme.TEXT));
+        titleLine.add(Ui.label(a.getTaskTitle(), Font.BOLD, 21, Theme.TEXT));
         titleLine.add(Box.createHorizontalStrut(10));
         titleLine.add(new StatusBadge(TasksScreen.points(a.getTaskPoints()), StatusBadge.Kind.PENDING));
         JPanel header = new JPanel(new BorderLayout());
@@ -89,7 +90,7 @@ public class TaskDetailDialog extends ModalPopup {
         header.add(closeHolder, BorderLayout.EAST);
         row(card, header, 0, 32);
         if (task != null && task.getDescription() != null && !task.getDescription().isBlank()) {
-            JLabel desc = TasksScreen.label("<html>" + escape(task.getDescription()) + "</html>", Font.PLAIN, 12,
+            JLabel desc = Ui.label("<html>" + escape(task.getDescription()) + "</html>", Font.PLAIN, 12,
                     Theme.MUTED_TEXT);
             row(card, desc, 4, Math.min(48, desc.getPreferredSize().height
                     * Math.max(1, desc.getPreferredSize().width / FORM_WIDTH + 1)));
@@ -138,30 +139,30 @@ public class TaskDetailDialog extends ModalPopup {
 
         // who's next (rotating tasks)
         if (turns.size() > 1) {
-            row(card, TasksScreen.label("Turns rotate", Font.BOLD, 12, Theme.PRIMARY), 16, 16);
+            row(card, Ui.label("Turns rotate", Font.BOLD, 12, Theme.PRIMARY), 16, 16);
             JPanel strip = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
             strip.setOpaque(false);
             for (int i = 0; i < turns.size(); i++) {
                 if (i > 0) {
-                    JLabel arrow = TasksScreen.label("\u203A", Font.BOLD, 14, Theme.MUTED_TEXT);
+                    JLabel arrow = Ui.label("\u203A", Font.BOLD, 14, Theme.MUTED_TEXT);
                     arrow.setBorder(new EmptyBorder(8, 6, 0, 6));
                     strip.add(arrow);
                 }
                 strip.add(turn(turns.get(i), me, i == 0));
             }
             row(card, strip, 8, strip.getPreferredSize().height);
-            row(card, TasksScreen.label("Turns after this one are a preview; swaps can change them.",
+            row(card, Ui.label("Turns after this one are a preview; swaps can change them.",
                     Font.PLAIN, 11, Theme.MUTED_TEXT), 6, 14);
         }
 
         if (planned) {
-            row(card, TasksScreen.label("Coming up. It can be ticked off or swapped once it's the next turn.",
+            row(card, Ui.label("Coming up. It can be ticked off or swapped once it's the next turn.",
                     Font.PLAIN, 12, Theme.MUTED_TEXT), 14, 16);
         } else if (pendingSwap != null) {
-            row(card, TasksScreen.label("You asked " + pendingSwap.getToUserName()
+            row(card, Ui.label("You asked " + pendingSwap.getToUserName()
                     + " to take this. It's yours until they accept.", Font.PLAIN, 12, Theme.AMBER), 14, 16);
         } else if (mine && a.getStatus() == TaskStatus.PENDING && pastDue) {
-            row(card, TasksScreen.label("It's past due, so it can't be swapped. Finishing it now counts as late.",
+            row(card, Ui.label("It's past due, so it can't be swapped. Finishing it now counts as late.",
                     Font.PLAIN, 12, Theme.DANGER), 14, 16);
         }
 
@@ -233,8 +234,8 @@ public class TaskDetailDialog extends ModalPopup {
         JPanel p = new JPanel(new BorderLayout(10, 0));
         p.setOpaque(false);
         p.setBorder(new EmptyBorder(6, 0, 6, 0));
-        p.add(TasksScreen.label(name, Font.PLAIN, 13, Theme.MUTED_TEXT), BorderLayout.WEST);
-        p.add(TasksScreen.label(value, Font.BOLD, 13, valueColor), BorderLayout.EAST);
+        p.add(Ui.label(name, Font.PLAIN, 13, Theme.MUTED_TEXT), BorderLayout.WEST);
+        p.add(Ui.label(value, Font.BOLD, 13, valueColor), BorderLayout.EAST);
         p.setAlignmentX(Component.LEFT_ALIGNMENT);
         p.setMaximumSize(new Dimension(Integer.MAX_VALUE, p.getPreferredSize().height));
         return p;
@@ -267,9 +268,9 @@ public class TaskDetailDialog extends ModalPopup {
         avatar.setBounds(4, 4, 32, 32);
         ring.add(avatar);
         boolean you = t.getUser().getId() == me;
-        JLabel name = TasksScreen.label(you ? "You" : t.getUser().getDisplayName(), current ? Font.BOLD : Font.PLAIN,
+        JLabel name = Ui.label(you ? "You" : t.getUser().getDisplayName(), current ? Font.BOLD : Font.PLAIN,
                 12, Theme.TEXT);
-        JLabel day = TasksScreen.label(TasksScreen.day(t.getDueAt().toLocalDate()), Font.PLAIN, 10, Theme.MUTED_TEXT);
+        JLabel day = Ui.label(TasksScreen.day(t.getDueAt().toLocalDate()), Font.PLAIN, 10, Theme.MUTED_TEXT);
         for (JComponent c : new JComponent[] {ring, name, day}) {
             c.setAlignmentX(Component.CENTER_ALIGNMENT);
             p.add(c);

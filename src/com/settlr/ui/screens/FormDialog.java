@@ -16,6 +16,8 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.settlr.ui.components.Ui.*;
+
 /**
  * A small popup form: a title, a few labelled fields, and Cancel / Save. The Profile page
  * uses it for display name, username, password and "How to pay me".
@@ -215,10 +217,4 @@ public class FormDialog extends ModalPopup {
         c.setAlignmentX(Component.LEFT_ALIGNMENT);
     }
 
-    private static JLabel label(String text, int style, int size, Color color) {
-        JLabel l = new JLabel(text);
-        l.setFont(Theme.font(style, size));
-        l.setForeground(color);
-        return l;
-    }
 }

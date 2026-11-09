@@ -9,6 +9,7 @@ import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.AvatarLabel;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
+import com.settlr.ui.components.Ui;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
@@ -52,18 +53,18 @@ public class SwapDialog extends ModalPopup {
 
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.add(TasksScreen.label("Ask to swap", Font.BOLD, 20, Theme.TEXT), BorderLayout.CENTER);
+        header.add(Ui.label("Ask to swap", Font.BOLD, 20, Theme.TEXT), BorderLayout.CENTER);
         JPanel closeHolder = new JPanel(new BorderLayout());
         closeHolder.setOpaque(false);
         closeHolder.add(createCloseButton(), BorderLayout.NORTH);
         header.add(closeHolder, BorderLayout.EAST);
         row(card, header, 0, 30);
-        row(card, TasksScreen.label(a.getTaskTitle() + TasksScreen.DOT + TasksScreen.when(a.getDueAt())
+        row(card, Ui.label(a.getTaskTitle() + TasksScreen.DOT + TasksScreen.when(a.getDueAt())
                 + TasksScreen.DOT + TasksScreen.points(a.getTaskPoints()), Font.PLAIN, 12, Theme.MUTED_TEXT), 4, 16);
-        row(card, TasksScreen.label("Who should take it?", Font.BOLD, 12, Theme.PRIMARY), 16, 16);
+        row(card, Ui.label("Who should take it?", Font.BOLD, 12, Theme.PRIMARY), 16, 16);
 
         if (others.isEmpty()) {
-            row(card, TasksScreen.label("There's nobody else in your household yet.", Font.PLAIN, 13, Theme.TEXT),
+            row(card, Ui.label("There's nobody else in your household yet.", Font.PLAIN, 13, Theme.TEXT),
                     10, 20);
         }
         for (User u : others) {
@@ -73,7 +74,7 @@ public class SwapDialog extends ModalPopup {
             options.add(option);
             row(card, option, 8, 54);
         }
-        JLabel hint = TasksScreen.label(" ", Font.PLAIN, 11, Theme.MUTED_TEXT);
+        JLabel hint = Ui.label(" ", Font.PLAIN, 11, Theme.MUTED_TEXT);
         row(card, hint, 8, 16);
 
         errorLabel.setFont(Theme.font(Font.PLAIN, 12));
@@ -155,8 +156,8 @@ public class SwapDialog extends ModalPopup {
             JPanel text = new JPanel();
             text.setOpaque(false);
             text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
-            text.add(TasksScreen.left(TasksScreen.label(user.getDisplayName(), Font.BOLD, 14, Theme.TEXT)));
-            text.add(TasksScreen.left(TasksScreen.label(detail, Font.PLAIN, 11, Theme.MUTED_TEXT)));
+            text.add(Ui.left(Ui.label(user.getDisplayName(), Font.BOLD, 14, Theme.TEXT)));
+            text.add(Ui.left(Ui.label(detail, Font.PLAIN, 11, Theme.MUTED_TEXT)));
             JPanel textHolder = new JPanel(new GridBagLayout());
             textHolder.setOpaque(false);
             GridBagConstraints gc = new GridBagConstraints();

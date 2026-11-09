@@ -1,6 +1,5 @@
 package com.settlr.ui.screens;
 
-import com.settlr.dao.MembershipDao;
 import com.settlr.exception.SettlrException;
 import com.settlr.model.Household;
 import com.settlr.model.RecurringTask;
@@ -10,11 +9,15 @@ import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
 import com.settlr.model.User;
+import com.settlr.service.HouseholdService;
 import com.settlr.service.SwapService;
 import com.settlr.service.TaskService;
 import com.settlr.ui.BaseScreen;
+import com.settlr.ui.components.AttentionCard;
 import com.settlr.ui.components.AvatarLabel;
+import com.settlr.ui.components.CheckCircle;
 import com.settlr.ui.components.GlassCard;
+import com.settlr.ui.components.ProgressBar;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.SegmentedControl;
 import com.settlr.ui.components.SlimScrollBarUI;
@@ -28,7 +31,6 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -42,6 +44,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import static com.settlr.ui.components.Ui.*;
 
 /**
  * Tasks page:
@@ -70,7 +74,7 @@ public class TasksScreen extends BaseScreen {
 
     private final TaskService taskService = new TaskService();
     private final SwapService swapService = new SwapService();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final HouseholdService householdService = new HouseholdService();
 
     // what's loaded
     private final Map<Integer, User> members = new LinkedHashMap<>();
@@ -84,8 +88,7 @@ public class TasksScreen extends BaseScreen {
     private boolean everyone;
 
     private final JLabel crumb = label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
-    private final JLabel messageLabel = new JLabel(" ");
-    private final JPanel attentionCard = new AttentionCard();
+    private final JPanel attentionCard = new AttentionCard(12);
     private final JPanel rows = vertical();
     private final JLabel weekTitle = label(" ", Font.BOLD, 12, Theme.TEXT);
     private final JLabel weekRange = label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
@@ -234,7 +237,7 @@ public class TasksScreen extends BaseScreen {
             Household h = Session.getInstance().getCurrentHousehold();
             members.clear();
             if (h != null) {
-                for (User u : membershipDao.findActiveMembers(h.getId())) {
+                for (User u : householdService.getMembers()) {
                     members.put(u.getId(), u);
                 }
             }
@@ -537,11 +540,6 @@ public class TasksScreen extends BaseScreen {
         showMessage(error != null ? error : successMessage, error != null);
     }
 
-    private void showMessage(String text, boolean isError) {
-        messageLabel.setForeground(isError ? Theme.DANGER : Theme.MINT);
-        messageLabel.setText(text);
-    }
-
     // =====================================================================
     //  Text helpers (also used by the popups)
     // =====================================================================
@@ -602,30 +600,6 @@ public class TasksScreen extends BaseScreen {
     // =====================================================================
     //  Small helpers
     // =====================================================================
-
-    static JPanel vertical() {
-        JPanel p = new JPanel();
-        p.setOpaque(false);
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        return p;
-    }
-
-    static <T extends JComponent> T left(T c) {
-        c.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return c;
-    }
-
-    static <T extends JComponent> T fitHeight(T c) {
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
-        return c;
-    }
-
-    static JLabel label(String text, int style, int size, Color color) {
-        JLabel l = new JLabel(text);
-        l.setFont(Theme.font(style, size));
-        l.setForeground(color);
-        return l;
-    }
 
     static JLabel link(String text, Runnable action) {
         JLabel l = label(text, Font.BOLD, 12, Theme.PRIMARY);
@@ -810,92 +784,6 @@ public class TasksScreen extends BaseScreen {
         }
     }
 
-    /** The round tick button. Mint when done, amber when done late, red ring when overdue or missed. */
-    static final class CheckCircle extends JComponent {
-        private static final int SIZE = 22;
-        private final TaskStatus status;
-        private final boolean overdue;
-        private final boolean clickable;
-        private boolean hover;
-
-        CheckCircle(TaskStatus status, boolean overdue, boolean clickable, Runnable onTick) {
-            this.status = status;
-            this.overdue = overdue;
-            this.clickable = clickable;
-            Dimension d = new Dimension(SIZE + 2, SIZE + 2);
-            setPreferredSize(d);
-            setMinimumSize(d);
-            if (clickable) {
-                setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                setToolTipText("Mark as done");
-                addMouseListener(new MouseAdapter() {
-                    @Override public void mouseClicked(MouseEvent e) { onTick.run(); }
-                    @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
-                    @Override public void mouseExited(MouseEvent e) { hover = false; repaint(); }
-                });
-            }
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            float x = 1, y = (getHeight() - SIZE) / 2f;
-            Shape circle = new Ellipse2D.Float(x, y, SIZE, SIZE);
-            boolean done = status == TaskStatus.DONE || status == TaskStatus.DONE_LATE;
-            if (done) {
-                g2.setColor(status == TaskStatus.DONE ? Theme.MINT : Theme.AMBER);
-                g2.fill(circle);
-                drawTick(g2, x, y, Theme.ON_MINT);
-            } else {
-                Color ring = status == TaskStatus.MISSED || overdue ? Theme.DANGER
-                        : clickable ? new Color(232, 217, 205, 150) : new Color(232, 217, 205, 60);
-                g2.setStroke(new BasicStroke(2f));
-                g2.setColor(ring);
-                g2.draw(new Ellipse2D.Float(x + 1, y + 1, SIZE - 2, SIZE - 2));
-                if (hover) {
-                    g2.setColor(new Color(95, 208, 176, 60));
-                    g2.fill(circle);
-                    drawTick(g2, x, y, Theme.MINT);
-                }
-            }
-            g2.dispose();
-        }
-
-        private static void drawTick(Graphics2D g2, float x, float y, Color color) {
-            g2.setColor(color);
-            g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g2.drawPolyline(new int[] {(int) x + 6, (int) x + 10, (int) x + 16},
-                    new int[] {(int) y + 11, (int) y + 15, (int) y + 8}, 3);
-        }
-    }
-
-    /** A thin rounded bar filled mint for done/total. */
-    static final class ProgressBar extends JComponent {
-        private final int done, total;
-
-        ProgressBar(int done, int total, int height) {
-            this.done = done;
-            this.total = total;
-            setPreferredSize(new Dimension(10, height));
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int h = getHeight();
-            g2.setColor(new Color(255, 255, 255, 25));
-            g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), h, h, h));
-            if (total > 0 && done > 0) {
-                g2.setColor(Theme.MINT);
-                g2.fill(new RoundRectangle2D.Float(0, 0, Math.max(h, getWidth() * done / (float) total), h, h, h));
-            }
-            g2.dispose();
-        }
-    }
-
     /** "Carlo ... 3/3" with a bar under the name. */
     private class MemberProgress extends JPanel {
         MemberProgress(User u, int[] count) {
@@ -960,33 +848,6 @@ public class TasksScreen extends BaseScreen {
                         BorderFactory.createMatteBorder(0, 0, 1, 0, DIVIDER), new EmptyBorder(9, 0, 9, 0)));
             }
             setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height));
-        }
-    }
-
-    /** The amber-tinted bar for swaps waiting for you (same look as on Expenses). */
-    private static class AttentionCard extends JPanel {
-        AttentionCard() {
-            setOpaque(false);
-            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            setBorder(new EmptyBorder(2, 18, 2, 18));
-        }
-
-        @Override
-        public Insets getInsets() {
-            Insets in = super.getInsets();
-            return new Insets(in.top + 12, in.left, in.bottom, in.right); // gap above the bar
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Shape card = new RoundRectangle2D.Float(0.5f, 12.5f, getWidth() - 1f, getHeight() - 13f, 22, 22);
-            g2.setColor(Theme.BANNER);
-            g2.fill(card);
-            g2.setColor(new Color(201, 164, 110, 120));
-            g2.draw(card);
-            g2.dispose();
         }
     }
 }

@@ -1,15 +1,15 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.HouseholdDao;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.RecurringBillDao;
 import com.settlr.dao.SwapRequestDao;
 import com.settlr.dao.TaskAssignmentDao;
 import com.settlr.dao.TaskDao;
-import com.settlr.exception.AuthException;
+import com.settlr.dao.UserDao;
 import com.settlr.exception.DataAccessException;
 import com.settlr.exception.NotFoundException;
-import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
 import com.settlr.exception.ValidationException;
 import com.settlr.model.ActivityType;
@@ -40,6 +40,8 @@ import java.util.Map;
  */
 public class HouseholdService {
 
+    private final Session session = Session.getInstance();
+
     private static final int MAX_CODE_ATTEMPTS = 10;
 
     /** One member as the Household page shows them. Read-only. */
@@ -60,17 +62,18 @@ public class HouseholdService {
         public boolean isAdmin() { return role == Role.ADMIN; }
     }
 
-    private final HouseholdDao householdDao = new HouseholdDao();
-    private final TaskDao taskDao = new TaskDao();
-    private final TaskAssignmentDao assignmentDao = new TaskAssignmentDao();
-    private final SwapRequestDao swapDao = new SwapRequestDao();
-    private final RecurringBillDao billDao = new RecurringBillDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final HouseholdDao householdDao = DaoFactory.get().households();
+    private final TaskDao taskDao = DaoFactory.get().tasks();
+    private final TaskAssignmentDao assignmentDao = DaoFactory.get().assignments();
+    private final SwapRequestDao swapDao = DaoFactory.get().swaps();
+    private final RecurringBillDao billDao = DaoFactory.get().recurringBills();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
+    private final UserDao userDao = DaoFactory.get().users();
     private final ActivityService activityService = new ActivityService();
 
     /** Creates a household with the current user as Admin and stores it in the Session. */
     public Household create(String name) throws SettlrException {
-        User user = requireLogin();
+        User user = session.requireUser();
 
         if (name == null || name.isBlank()) {
             throw new ValidationException("Please enter a household name.");
@@ -95,7 +98,7 @@ public class HouseholdService {
 
     /** Joins the household that owns this invite code, as a Member. */
     public Household join(String inviteCode) throws SettlrException {
-        User user = requireLogin();
+        User user = session.requireUser();
 
         if (inviteCode == null || inviteCode.isBlank()) {
             throw new ValidationException("Please enter an invite code.");
@@ -122,14 +125,23 @@ public class HouseholdService {
 
     /** Active members of the current household, in join order. */
     public List<User> getMembers() throws SettlrException {
-        requireLogin();
-        return membershipDao.findActiveMembers(currentHousehold().getId());
+        session.requireUser();
+        return membershipDao.findActiveMembers(session.requireHousehold().getId());
+    }
+
+    /**
+     * Anyone by id, including people who left the household, so old expenses and tasks can
+     * still show their name. Null if there's no such user.
+     */
+    public User findUser(int userId) throws SettlrException {
+        session.requireUser();
+        return userDao.findById(userId);
     }
 
     /** Active members with their role and join date, in join order. */
     public List<Member> getMemberList() throws SettlrException {
-        requireLogin();
-        int householdId = currentHousehold().getId();
+        session.requireUser();
+        int householdId = session.requireHousehold().getId();
         Map<Integer, User> users = new HashMap<>();
         for (User u : membershipDao.findActiveMembers(householdId)) {
             users.put(u.getId(), u);
@@ -146,8 +158,8 @@ public class HouseholdService {
 
     /** Admin only. Renames the household. */
     public void rename(String name) throws SettlrException {
-        requireLogin();
-        requireAdmin();
+        session.requireUser();
+        session.requireAdmin();
         String trimmed = name == null ? "" : name.trim();
         if (trimmed.isEmpty()) {
             throw new ValidationException("Please enter a household name.");
@@ -156,7 +168,7 @@ public class HouseholdService {
             throw new ValidationException("Household name must be at most " + Household.MAX_NAME_LENGTH
                     + " characters.");
         }
-        Household household = currentHousehold();
+        Household household = session.requireHousehold();
         String old = household.getName();
         household.setName(trimmed);
         try {
@@ -172,9 +184,9 @@ public class HouseholdService {
      * Admin, so the last one can't step down until someone else is Admin.
      */
     public void setRole(int userId, Role role) throws SettlrException {
-        User me = requireLogin();
-        requireAdmin();
-        Household household = currentHousehold();
+        User me = session.requireUser();
+        session.requireAdmin();
+        Household household = session.requireHousehold();
         Membership target = membershipDao.find(household.getId(), userId);
         if (target == null || !target.isActive()) {
             throw new NotFoundException("That person isn't an active member of this household.");
@@ -198,13 +210,13 @@ public class HouseholdService {
      * Money they owe stays on Expenses; the screen warns the Admin about it first.
      */
     public String removeMember(int userId) throws SettlrException {
-        User me = requireLogin();
-        requireAdmin();
+        User me = session.requireUser();
+        session.requireAdmin();
 
         if (userId == me.getId()) {
             throw new ValidationException("Admins can't remove themselves.");
         }
-        int householdId = currentHousehold().getId();
+        int householdId = session.requireHousehold().getId();
         Membership target = membershipDao.findActiveMembershipOf(userId);
         if (target == null || target.getHouseholdId() != householdId) {
             throw new NotFoundException("That person isn't an active member of this household.");
@@ -220,8 +232,8 @@ public class HouseholdService {
      * the only Admin and others are still in it. Your upcoming tasks go to someone else.
      */
     public void leave() throws SettlrException {
-        User me = requireLogin();
-        Household household = currentHousehold();
+        User me = session.requireUser();
+        Household household = session.requireHousehold();
         List<Member> members = getMemberList();
         if (Session.getInstance().isAdmin() && countAdmins() <= 1 && members.size() > 1) {
             throw new ValidationException("You're the only Admin. Make someone else Admin before you leave.");
@@ -252,14 +264,14 @@ public class HouseholdService {
 
     /** The household's monthly bills, running and paused. */
     public List<RecurringBill> getBills() throws SettlrException {
-        requireLogin();
-        return billDao.findByHousehold(currentHousehold().getId());
+        session.requireUser();
+        return billDao.findByHousehold(session.requireHousehold().getId());
     }
 
     /** Admin only. A paused bill stops adding an expense each month until it's resumed. */
     public void setBillPaused(int billId, boolean paused) throws SettlrException {
-        requireLogin();
-        requireAdmin();
+        session.requireUser();
+        session.requireAdmin();
         RecurringBill bill = loadOwnBill(billId);
         if (!paused && bill.getMemberIds().isEmpty()) {
             throw new ValidationException("Nobody is on this bill anymore, so it can't be resumed.");
@@ -273,8 +285,8 @@ public class HouseholdService {
      * paused, because its past expenses still point to it.
      */
     public void deleteBill(int billId) throws SettlrException {
-        requireLogin();
-        requireAdmin();
+        session.requireUser();
+        session.requireAdmin();
         RecurringBill bill = loadOwnBill(billId);
         if (bill.getLastGenerated() != null) {
             throw new ValidationException("This bill already added expenses, so it can only be paused.");
@@ -284,10 +296,10 @@ public class HouseholdService {
 
     /** Admin only. Replaces the invite code and returns the new one. */
     public String regenerateInviteCode() throws SettlrException {
-        requireLogin();
-        requireAdmin();
+        session.requireUser();
+        session.requireAdmin();
 
-        Household household = currentHousehold();
+        Household household = session.requireHousehold();
         String oldCode = household.getInviteCode();
         String newCode = generateUniqueCode();
         household.setInviteCode(newCode);
@@ -352,7 +364,7 @@ public class HouseholdService {
 
     private int countAdmins() throws SettlrException {
         int admins = 0;
-        for (Membership m : membershipDao.findActiveMemberships(currentHousehold().getId())) {
+        for (Membership m : membershipDao.findActiveMemberships(session.requireHousehold().getId())) {
             if (m.getRole() == Role.ADMIN) {
                 admins++;
             }
@@ -362,32 +374,10 @@ public class HouseholdService {
 
     private RecurringBill loadOwnBill(int billId) throws SettlrException {
         RecurringBill bill = billDao.findById(billId);
-        if (bill == null || bill.getHouseholdId() != currentHousehold().getId()) {
+        if (bill == null || bill.getHouseholdId() != session.requireHousehold().getId()) {
             throw new NotFoundException("That bill could not be found.");
         }
         return bill;
-    }
-
-    private User requireLogin() throws AuthException {
-        Session session = Session.getInstance();
-        if (!session.isLoggedIn()) {
-            throw new AuthException("Please log in first.");
-        }
-        return session.getCurrentUser();
-    }
-
-    private void requireAdmin() throws PermissionDeniedException {
-        if (!Session.getInstance().isAdmin()) {
-            throw new PermissionDeniedException("Only the household Admin can do that.");
-        }
-    }
-
-    private Household currentHousehold() throws NotFoundException {
-        Household household = Session.getInstance().getCurrentHousehold();
-        if (household == null) {
-            throw new NotFoundException("You aren't in a household yet.");
-        }
-        return household;
     }
 
     /**

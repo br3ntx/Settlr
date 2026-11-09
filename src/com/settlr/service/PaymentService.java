@@ -1,11 +1,10 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ExpenseDao;
 import com.settlr.dao.ExpenseShareDao;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.PaymentDao;
-import com.settlr.exception.AuthException;
-import com.settlr.exception.DataAccessException;
 import com.settlr.exception.NotFoundException;
 import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
@@ -16,12 +15,10 @@ import com.settlr.model.ExpenseShare;
 import com.settlr.model.Payment;
 import com.settlr.model.PaymentStatus;
 import com.settlr.model.User;
-import com.settlr.util.DBConnection;
+import com.settlr.util.Transaction;
 import com.settlr.util.MoneyUtil;
 import com.settlr.util.Session;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -38,16 +35,15 @@ import java.util.Set;
  */
 public class PaymentService {
 
-    private final PaymentDao paymentDao = new PaymentDao();
-    private final ExpenseShareDao shareDao = new ExpenseShareDao();
-    private final ExpenseDao expenseDao = new ExpenseDao();
-    private final MembershipDao membershipDao = new MembershipDao();
-    private final ActivityService activityService = new ActivityService();
+    private final Session session = Session.getInstance();
 
-    /** One step of a transaction; receives the shared connection. */
-    private interface TransactionBody {
-        void run(Connection c) throws SettlrException;
-    }
+    private static final String SAVE_FAILED = "Could not save your payment. Please try again.";
+
+    private final PaymentDao paymentDao = DaoFactory.get().payments();
+    private final ExpenseShareDao shareDao = DaoFactory.get().shares();
+    private final ExpenseDao expenseDao = DaoFactory.get().expenses();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
+    private final ActivityService activityService = new ActivityService();
 
     /** A payment together with its share and expense, loaded and checked once. */
     private static final class Loaded {
@@ -70,8 +66,8 @@ public class PaymentService {
      * are saved together or not at all.
      */
     public void pay(List<Integer> shareIds) throws SettlrException {
-        User me = currentUser();
-        int householdId = currentHouseholdId();
+        User me = session.requireUser();
+        int householdId = session.requireHouseholdId();
         validateShareIds(shareIds);
 
         Map<Integer, String> activeMembers = memberNames(householdId);
@@ -115,7 +111,7 @@ public class PaymentService {
             payments.add(newPendingPayment(shareId, me.getId(), payeeId, share, now));
         }
 
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             for (Payment p : payments) {
                 p.setId(paymentDao.insert(c, p));
             }
@@ -127,7 +123,7 @@ public class PaymentService {
      * payment's paid_at (rule 3.6). Both updates happen in ONE transaction.
      */
     public void confirm(int paymentId) throws SettlrException {
-        int householdId = currentHouseholdId();
+        int householdId = session.requireHouseholdId();
         Loaded loaded = loadPendingForReceiver(paymentId, householdId);
         Payment payment = loaded.payment;
         ExpenseShare share = loaded.share;
@@ -139,7 +135,7 @@ public class PaymentService {
         payment.setConfirmedAt(LocalDateTime.now());
         share.setSettledAt(payment.getPaidAt());
 
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             paymentDao.update(c, payment);
             shareDao.update(c, share);
         });
@@ -154,7 +150,7 @@ public class PaymentService {
 
     /** The receiver rejects: payment becomes REJECTED and the share stays unsettled. */
     public void reject(int paymentId) throws SettlrException {
-        Loaded loaded = loadPendingForReceiver(paymentId, currentHouseholdId());
+        Loaded loaded = loadPendingForReceiver(paymentId, session.requireHouseholdId());
         loaded.payment.setStatus(PaymentStatus.REJECTED);
         // One statement changes one row, so no transaction is needed.
         paymentDao.update(loaded.payment);
@@ -162,8 +158,8 @@ public class PaymentService {
 
     /** PENDING payments the current user must still confirm or reject. */
     public List<Payment> getWaitingForMyConfirmation() throws SettlrException {
-        int me = currentUser().getId();
-        int householdId = currentHouseholdId();
+        int me = session.requireUser().getId();
+        int householdId = session.requireHouseholdId();
 
         List<Payment> mine = new ArrayList<>();
         for (Payment p : paymentDao.findWaitingFor(me)) {
@@ -202,7 +198,7 @@ public class PaymentService {
      * never processed twice).
      */
     private Loaded loadPendingForReceiver(int paymentId, int householdId) throws SettlrException {
-        int me = currentUser().getId();
+        int me = session.requireUser().getId();
         Payment payment = paymentDao.findById(paymentId);
         if (payment == null) {
             throw new NotFoundException("That payment could not be found.");
@@ -235,22 +231,6 @@ public class PaymentService {
 
     // ---- session -------------------------------------------------------
 
-    private User currentUser() throws SettlrException {
-        Session session = Session.getInstance();
-        if (!session.isLoggedIn()) {
-            throw new AuthException("Please log in first.");
-        }
-        return session.getCurrentUser();
-    }
-
-    private int currentHouseholdId() throws SettlrException {
-        currentUser();
-        if (Session.getInstance().getCurrentHousehold() == null) {
-            throw new PermissionDeniedException("Please create or join a household first.");
-        }
-        return Session.getInstance().getCurrentHousehold().getId();
-    }
-
     // ---- helpers -------------------------------------------------------
 
     /** The Payment constructor validates; its IllegalArgumentException becomes a readable ValidationException. */
@@ -276,22 +256,4 @@ public class PaymentService {
         return names.getOrDefault(userId, "A member");
     }
 
-    /**
-     * Runs several DAO calls as one all-or-nothing unit (rule in section 10). The service
-     * decides where the transaction starts and ends; the DAOs still hold every SQL statement.
-     */
-    private void runInTransaction(TransactionBody body) throws SettlrException {
-        try (Connection c = DBConnection.getInstance().getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                body.run(c);
-                c.commit();
-            } catch (SettlrException | RuntimeException e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (SQLException e) {
-            throw new DataAccessException("Could not save your payment. Please try again.");
-        }
-    }
 }

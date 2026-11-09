@@ -1,5 +1,6 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ExpenseShareDao;
 import com.settlr.exception.AuthException;
 import com.settlr.exception.SettlrException;
@@ -25,7 +26,7 @@ public class NotificationService {
 
     private final TaskService taskService = new TaskService();
     private final PaymentService paymentService = new PaymentService();
-    private final ExpenseShareDao expenseShareDao = new ExpenseShareDao();
+    private final ExpenseShareDao expenseShareDao = DaoFactory.get().shares();
     private final SettlementService settlementService = new SettlementService();
 
     /**

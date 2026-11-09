@@ -12,6 +12,7 @@ import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.SegmentedControl;
 import com.settlr.ui.components.StyledTextField;
+import com.settlr.ui.components.Ui;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
@@ -49,10 +50,10 @@ public final class PetEditDialog extends ModalPopup {
     private final PetFigure figure = new PetFigure(220, 196);
     private final JPanel nameRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
     private final StyledTextField nameField = new StyledTextField("Give it a name");
-    private final JLabel kindLabel = ShopScreen.label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
+    private final JLabel kindLabel = Ui.label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
     private final JPanel tiles = new JPanel(new GridLayout(0, COLUMNS, 12, 10));
-    private final JLabel emptyLabel = ShopScreen.label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
-    private final JLabel errorLabel = ShopScreen.label(" ", Font.PLAIN, 12, Theme.DANGER);
+    private final JLabel emptyLabel = Ui.label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
+    private final JLabel errorLabel = Ui.label(" ", Font.PLAIN, 12, Theme.DANGER);
     private final RoundedButton changePet = TasksScreen.smallButton("Change pet");
 
     public static void open(Component over, List<OwnedPet> myPets, String shownCode, Set<String> owned,
@@ -73,14 +74,14 @@ public final class PetEditDialog extends ModalPopup {
 
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
-        header.add(ShopScreen.label("Edit pet", Font.BOLD, 20, Theme.TEXT), BorderLayout.CENTER);
+        header.add(Ui.label("Edit pet", Font.BOLD, 20, Theme.TEXT), BorderLayout.CENTER);
         JPanel closeHolder = new JPanel(new BorderLayout());
         closeHolder.setOpaque(false);
         closeHolder.add(createCloseButton(), BorderLayout.NORTH);
         header.add(closeHolder, BorderLayout.EAST);
         row(header, 0, 32);
 
-        row(ShopScreen.centered(figure), 0, 196);
+        row(Ui.centered(figure), 0, 196);
 
         nameRow.setOpaque(false);
         row(nameRow, 4, 34);
@@ -114,7 +115,7 @@ public final class PetEditDialog extends ModalPopup {
         card.add(tiles);
         row(emptyLabel, 4, 16);
 
-        JLabel shopHint = ShopScreen.label("<html>Want more? Hats and accessories are in the "
+        JLabel shopHint = Ui.label("<html>Want more? Hats and accessories are in the "
                 + "<b><font color='#E8D9CD'>Shop</font></b>.</html>", Font.PLAIN, 12, Theme.MUTED_TEXT);
         shopHint.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         shopHint.addMouseListener(new MouseAdapter() {
@@ -178,7 +179,7 @@ public final class PetEditDialog extends ModalPopup {
             nameRow.add(done);
             SwingUtilities.invokeLater(nameField::requestFocusInWindow);
         } else {
-            nameRow.add(ShopScreen.label(current().getDisplayName(), Font.BOLD, 21, Theme.TEXT));
+            nameRow.add(Ui.label(current().getDisplayName(), Font.BOLD, 21, Theme.TEXT));
             RoundedButton rename = TasksScreen.smallButton("Rename");
             rename.addActionListener(e -> {
                 renaming = true;

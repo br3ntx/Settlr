@@ -1,6 +1,5 @@
 package com.settlr.ui.screens;
 
-import com.settlr.dao.MembershipDao;
 import com.settlr.exception.DataAccessException;
 import com.settlr.exception.SettlrException;
 import com.settlr.model.Expense;
@@ -8,6 +7,7 @@ import com.settlr.model.ExpenseCategory;
 import com.settlr.model.ExpenseShare;
 import com.settlr.model.Household;
 import com.settlr.model.User;
+import com.settlr.service.HouseholdService;
 import com.settlr.service.ExpenseService;
 import com.settlr.split.EqualSplit;
 import com.settlr.ui.ModalPopup;
@@ -28,7 +28,6 @@ import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -72,8 +71,8 @@ public class ExpenseFormDialog extends ModalPopup {
                 JOptionPane.showMessageDialog(anyComponent, "Join a household first.");
                 return;
             }
-            members = new MembershipDao().findActiveMembers(household.getId());
-        } catch (DataAccessException e) {
+            members = new HouseholdService().getMembers();
+        } catch (SettlrException e) {
             JOptionPane.showMessageDialog(anyComponent, "Can't load your household members: " + e.getMessage());
             return;
         }
@@ -303,10 +302,15 @@ public class ExpenseFormDialog extends ModalPopup {
         }
         try {
             Session s = Session.getInstance();
-            Expense expense = new Expense(0, s.getCurrentHousehold().getId(), null,
-                    titleField.getText(), categoryBox.getSelected(), amount,
-                    paidByBox.getSelected().getId(), dueDateField.getDate(),
-                    s.getCurrentUser().getId(), LocalDateTime.now());
+            Expense expense = Expense.builder()
+                    .household(s.getCurrentHousehold().getId())
+                    .title(titleField.getText())
+                    .category(categoryBox.getSelected())
+                    .amount(amount)
+                    .paidBy(paidByBox.getSelected().getId())
+                    .dueDate(dueDateField.getDate())
+                    .createdBy(s.getCurrentUser().getId())
+                    .build();
             expenseService.addExpense(expense, selectedMemberIds(), new EqualSplit());
             close();
             if (onSaved != null) {

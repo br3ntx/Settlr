@@ -204,17 +204,33 @@ public class RecurringBill {
         LocalDate dueDate = month.atDay(
                 Math.min(dueDay, month.lengthOfMonth()));
 
-        return new Expense(
-                0,
-                householdId,
-                id,
-                title,
-                category,
-                amount,
-                paidBy,
-                dueDate,
-                createdBy,
-                LocalDateTime.now()
-        );
+        return Expense.builder()
+                .household(householdId)
+                .fromBill(id)
+                .title(title)
+                .category(category)
+                .amount(amount)
+                .paidBy(paidBy)
+                .dueDate(dueDate)
+                .createdBy(createdBy)
+                .build();
+    }
+
+    /**
+     * The next day this bill is due, counting from today: this month if its due day hasn't
+     * passed yet, otherwise next month.
+     */
+    public LocalDate nextDueDate(LocalDate today) {
+        LocalDate thisMonth = today.withDayOfMonth(Math.min(dueDay, today.lengthOfMonth()));
+        if (!thisMonth.isBefore(today)) {
+            return thisMonth;
+        }
+        LocalDate next = today.plusMonths(1);
+        return next.withDayOfMonth(Math.min(dueDay, next.lengthOfMonth()));
+    }
+
+    /** Each member's part of the bill (the total divided evenly, rounded to the centavo). */
+    public BigDecimal shareEach() {
+        return amount.divide(BigDecimal.valueOf(memberIds.size()), 2, java.math.RoundingMode.HALF_UP);
     }
 }

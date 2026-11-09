@@ -1,11 +1,10 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.SwapRequestDao;
 import com.settlr.dao.TaskAssignmentDao;
 import com.settlr.dao.TaskDao;
-import com.settlr.exception.AuthException;
-import com.settlr.exception.DataAccessException;
 import com.settlr.exception.NotFoundException;
 import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
@@ -19,12 +18,10 @@ import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
 import com.settlr.model.User;
-import com.settlr.util.DBConnection;
+import com.settlr.util.Transaction;
 import com.settlr.util.DateTimeUtil;
 import com.settlr.util.Session;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,13 +35,17 @@ import java.util.List;
  */
 public class TaskService {
 
+    private final Session session = Session.getInstance();
+
+    private static final String SAVE_FAILED = "Could not save your changes. Please try again.";
+
     /** Used to mean "every pending assignment": no task is due before this. */
     private static final LocalDateTime EARLIEST = LocalDateTime.of(2000, 1, 1, 0, 0);
 
-    private final TaskDao taskDao = new TaskDao();
-    private final TaskAssignmentDao assignmentDao = new TaskAssignmentDao();
-    private final SwapRequestDao swapDao = new SwapRequestDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final TaskDao taskDao = DaoFactory.get().tasks();
+    private final TaskAssignmentDao assignmentDao = DaoFactory.get().assignments();
+    private final SwapRequestDao swapDao = DaoFactory.get().swaps();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
     private final ActivityService activityService = new ActivityService();
 
     /** One upcoming turn of a task: who does it and when. Read-only. */
@@ -61,22 +62,17 @@ public class TaskService {
         public LocalDateTime getDueAt() { return dueAt; }
     }
 
-    /** One step of a transaction; gets the shared connection. */
-    private interface TransactionBody {
-        void run(Connection c) throws SettlrException;
-    }
-
     // ---- public API (master doc 8.4) -----------------------------------
 
     /** Saves a new task and its first assignment together. */
     public Task createTask(Task task) throws SettlrException {
-        int userId = currentUser().getId();
-        int householdId = currentHouseholdId();
+        int userId = session.requireUser().getId();
+        int householdId = session.requireHouseholdId();
         validateTask(task, householdId);
 
         task.setHouseholdId(householdId);
         task.setCreatedBy(userId);
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             task.setId(taskDao.insert(c, task));
             assignmentDao.insertIfAbsent(c, new TaskAssignment(
                     task.getId(), task.getDefaultAssigneeId(), task.getFirstDueAt()));
@@ -102,7 +98,7 @@ public class TaskService {
 
         LocalDateTime now = LocalDateTime.now();
         task.setArchived(false);
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             taskDao.update(c, task);
             swapDao.deleteByTaskAfter(c, task.getId(), now);
             assignmentDao.deletePendingAfter(c, task.getId(), now);
@@ -119,7 +115,7 @@ public class TaskService {
         Task existing = loadOwnTask(taskId);
         requireCanModify(existing);
 
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             swapDao.deleteByTaskAfter(c, taskId, EARLIEST);
             assignmentDao.deletePendingAfter(c, taskId, EARLIEST);
             taskDao.delete(c, taskId);
@@ -128,7 +124,7 @@ public class TaskService {
 
     /** Marks an assignment done (or done late) and logs it to the activity feed. */
     public void completeAssignment(int assignmentId) throws SettlrException {
-        int userId = currentUser().getId();
+        int userId = session.requireUser().getId();
         TaskAssignment a = assignmentDao.findById(assignmentId);
         requireInHousehold(a);
 
@@ -145,7 +141,7 @@ public class TaskService {
         LocalDateTime now = LocalDateTime.now();
         a.markComplete(now);       // the DONE / DONE_LATE rule lives in the model
         SwapRequest swap = swapDao.findPendingForAssignment(assignmentId);
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             assignmentDao.update(c, a);
             if (swap != null) {        // nobody can take a finished task, so its swap request ends too
                 swap.setStatus(SwapStatus.DECLINED);
@@ -158,15 +154,15 @@ public class TaskService {
 
     /** The current user's assignments due today, in any status so the screen can show badges. */
     public List<TaskAssignment> getMyTasksDueToday() throws SettlrException {
-        int userId = currentUser().getId();
+        int userId = session.requireUser().getId();
         LocalDateTime start = LocalDate.now().atStartOfDay();
-        List<TaskAssignment> today = assignmentDao.findBetween(currentHouseholdId(), start, start.plusDays(1));
+        List<TaskAssignment> today = assignmentDao.findBetween(session.requireHouseholdId(), start, start.plusDays(1));
         return onlyAssignedTo(today, userId);
     }
 
     /** The current user's PENDING assignments whose due time has passed. */
     public List<TaskAssignment> getMyOverdueTasks() throws SettlrException {
-        int userId = currentUser().getId();
+        int userId = session.requireUser().getId();
         return onlyAssignedTo(assignmentDao.findPendingDueBefore(LocalDateTime.now()), userId);
     }
 
@@ -175,7 +171,7 @@ public class TaskService {
         if (anyDayInWeek == null) {
             throw new ValidationException("Please choose a day.");
         }
-        int householdId = currentHouseholdId();
+        int householdId = session.requireHouseholdId();
         LocalDateTime start = DateTimeUtil.weekStart(anyDayInWeek);
         return assignmentDao.findBetween(householdId, start, start.plusDays(7));
     }
@@ -184,12 +180,12 @@ public class TaskService {
 
     /** Every task of the household that isn't archived (for repeat, rotation and description details). */
     public List<Task> getActiveTasks() throws SettlrException {
-        return taskDao.findActiveByHousehold(currentHouseholdId());
+        return taskDao.findActiveByHousehold(session.requireHouseholdId());
     }
 
     /** Everyone's PENDING assignments in this household whose due time has passed, earliest first. */
     public List<TaskAssignment> getOverdue() throws SettlrException {
-        int householdId = currentHouseholdId();
+        int householdId = session.requireHouseholdId();
         List<Integer> ids = new ArrayList<>();
         for (Task t : taskDao.findActiveByHousehold(householdId)) {
             ids.add(t.getId());
@@ -211,7 +207,7 @@ public class TaskService {
     public List<Turn> upcomingTurns(TaskAssignment from, int count) throws SettlrException {
         requireInHousehold(from);
         Task task = taskDao.findById(from.getTaskId());
-        List<User> members = membershipDao.findActiveMembers(currentHouseholdId());
+        List<User> members = membershipDao.findActiveMembers(session.requireHouseholdId());
         List<Turn> turns = new ArrayList<>();
         int assignee = from.getAssigneeId();
         LocalDateTime due = from.getDueAt();
@@ -238,7 +234,7 @@ public class TaskService {
         if (anyDayInWeek == null) {
             throw new ValidationException("Please choose a day.");
         }
-        int householdId = currentHouseholdId();
+        int householdId = session.requireHouseholdId();
         LocalDateTime from = DateTimeUtil.weekStart(anyDayInWeek);
         LocalDateTime to = from.plusDays(7);
         LocalDateTime now = LocalDateTime.now();
@@ -280,13 +276,13 @@ public class TaskService {
 
     /** True when the current user may edit or archive this task (its creator or an Admin). */
     public boolean canModify(Task task) throws SettlrException {
-        return task != null && (task.getCreatedBy() == currentUser().getId() || Session.getInstance().isAdmin());
+        return task != null && (task.getCreatedBy() == session.requireUser().getId() || Session.getInstance().isAdmin());
     }
 
     /** True when the current user may tick this assignment off (its assignee or an Admin). */
     public boolean canComplete(TaskAssignment a) throws SettlrException {
         return a.getId() > 0 && a.getStatus() == TaskStatus.PENDING
-                && (a.getAssigneeId() == currentUser().getId() || Session.getInstance().isAdmin());
+                && (a.getAssigneeId() == session.requireUser().getId() || Session.getInstance().isAdmin());
     }
 
     private static User findMember(List<User> members, int userId, String fallbackName) {
@@ -330,7 +326,7 @@ public class TaskService {
     /** Loads a non-archived task of the current household or throws NotFound. */
     private Task loadOwnTask(int taskId) throws SettlrException {
         Task task = taskDao.findById(taskId);
-        if (task == null || task.isArchived() || task.getHouseholdId() != currentHouseholdId()) {
+        if (task == null || task.isArchived() || task.getHouseholdId() != session.requireHouseholdId()) {
             throw new NotFoundException("That task could not be found.");
         }
         return task;
@@ -338,7 +334,7 @@ public class TaskService {
 
     /** Only the creator or an Admin may change or delete a task (3.2). */
     private void requireCanModify(Task task) throws SettlrException {
-        boolean creator = task.getCreatedBy() == currentUser().getId();
+        boolean creator = task.getCreatedBy() == session.requireUser().getId();
         if (!creator && !Session.getInstance().isAdmin()) {
             throw new PermissionDeniedException("Only the person who created this task or an Admin can change it.");
         }
@@ -347,28 +343,12 @@ public class TaskService {
     /** Stops someone from touching another household's assignment by id. */
     private void requireInHousehold(TaskAssignment a) throws SettlrException {
         Task task = (a == null) ? null : taskDao.findById(a.getTaskId());
-        if (task == null || task.getHouseholdId() != currentHouseholdId()) {
+        if (task == null || task.getHouseholdId() != session.requireHouseholdId()) {
             throw new NotFoundException("That task could not be found.");
         }
     }
 
     // ---- session -------------------------------------------------------
-
-    private User currentUser() throws SettlrException {
-        Session session = Session.getInstance();
-        if (!session.isLoggedIn()) {
-            throw new AuthException("Please log in first.");
-        }
-        return session.getCurrentUser();
-    }
-
-    private int currentHouseholdId() throws SettlrException {
-        currentUser();
-        if (Session.getInstance().getCurrentHousehold() == null) {
-            throw new PermissionDeniedException("Please create or join a household first.");
-        }
-        return Session.getInstance().getCurrentHousehold().getId();
-    }
 
     // ---- helpers -------------------------------------------------------
 
@@ -409,23 +389,4 @@ public class TaskService {
         return n + " " + unit + (n == 1 ? "" : "s");
     }
 
-    /**
-     * Runs several DAO calls as one all-or-nothing unit. The only JDBC in this
-     * class: the service decides where a transaction starts and ends, the DAOs
-     * still hold every SQL statement.
-     */
-    private void runInTransaction(TransactionBody body) throws SettlrException {
-        try (Connection c = DBConnection.getInstance().getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                body.run(c);
-                c.commit();
-            } catch (SettlrException | RuntimeException e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (SQLException e) {
-            throw new DataAccessException("Could not save your changes. Please try again.");
-        }
-    }
 }

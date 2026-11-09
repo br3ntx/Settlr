@@ -32,6 +32,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import static com.settlr.ui.components.Ui.*;
+
 /**
  * "Pay Ana" (master doc section 5, net version).
  *
@@ -546,13 +548,6 @@ public class PaymentDialog extends ModalPopup {
         c.setMaximumSize(d);
         c.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.add(c);
-    }
-
-    private static JLabel label(String text, int style, int size, Color color) {
-        JLabel l = new JLabel(text);
-        l.setFont(Theme.font(style, size));
-        l.setForeground(color);
-        return l;
     }
 
     // ---------- small drawn pieces ----------

@@ -1,12 +1,12 @@
 package com.settlr.ui.screens;
 
-import com.settlr.dao.MembershipDao;
 import com.settlr.exception.DataAccessException;
 import com.settlr.exception.SettlrException;
 import com.settlr.model.Household;
 import com.settlr.model.OneTimeTask;
 import com.settlr.model.Task;
 import com.settlr.model.User;
+import com.settlr.service.HouseholdService;
 import com.settlr.service.TaskService;
 import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.DatePickerField;
@@ -65,8 +65,8 @@ public class TaskFormDialog extends ModalPopup {
                 JOptionPane.showMessageDialog(anyComponent, "Join a household first.");
                 return;
             }
-            members = new MembershipDao().findActiveMembers(household.getId());
-        } catch (DataAccessException e) {
+            members = new HouseholdService().getMembers();
+        } catch (SettlrException e) {
             JOptionPane.showMessageDialog(anyComponent, "Can't load your household members: " + e.getMessage());
             return;
         }

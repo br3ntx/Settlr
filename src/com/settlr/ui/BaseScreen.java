@@ -1,5 +1,8 @@
 package com.settlr.ui;
 
+import com.settlr.ui.theme.Theme;
+
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
@@ -11,6 +14,15 @@ import javax.swing.JPanel;
  * knowing which screen it is (polymorphism).
  */
 public abstract class BaseScreen extends JPanel {
+
+    /** The green or red line under a screen's title. Each screen decides where to put it. */
+    protected final JLabel messageLabel = new JLabel(" ");
+
+    /** Shows a message in green (done) or red (something went wrong). " " clears it. */
+    protected void showMessage(String text, boolean isError) {
+        messageLabel.setForeground(isError ? Theme.DANGER : Theme.MINT);
+        messageLabel.setText(text);
+    }
 
     /** Reload this screen's data. Called each time the screen is shown. */
     public abstract void onShow();

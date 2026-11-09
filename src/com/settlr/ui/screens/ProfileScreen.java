@@ -34,6 +34,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
+import static com.settlr.ui.components.Ui.*;
+
 /**
  * Your profile (opens from the avatar in the top bar):
  *   - header: picture (click to change), display name, @username, household, join date
@@ -75,7 +77,6 @@ public class ProfileScreen extends BaseScreen {
 
     private final ProfileService profileService = new ProfileService();
     private final JPanel content = vertical();
-    private final JLabel messageLabel = new JLabel(" ");
 
     public ProfileScreen() {
         setBackground(Theme.BACKGROUND);
@@ -441,11 +442,6 @@ public class ProfileScreen extends BaseScreen {
         showMessage(message, false);
     }
 
-    private void showMessage(String text, boolean isError) {
-        messageLabel.setForeground(isError ? Theme.DANGER : Theme.MINT);
-        messageLabel.setText(text);
-    }
-
     private static User currentUser() {
         return Session.getInstance().getCurrentUser();
     }
@@ -533,23 +529,6 @@ public class ProfileScreen extends BaseScreen {
         return String.join(" ", code.split(""));
     }
 
-    private static JPanel vertical() {
-        JPanel p = new JPanel();
-        p.setOpaque(false);
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        return p;
-    }
-
-    private static <T extends JComponent> T left(T c) {
-        c.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return c;
-    }
-
-    private static <T extends JComponent> T fitHeight(T c) {
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
-        return c;
-    }
-
     /** Lets the GridBag weights decide the column widths instead of the content. */
     private static JComponent narrow(JComponent c) {
         JPanel p = new JPanel(new BorderLayout()) {
@@ -561,13 +540,6 @@ public class ProfileScreen extends BaseScreen {
         p.setOpaque(false);
         p.add(c, BorderLayout.CENTER);
         return p;
-    }
-
-    private static JLabel label(String text, int style, int size, Color color) {
-        JLabel l = new JLabel(text);
-        l.setFont(Theme.font(style, size));
-        l.setForeground(color);
-        return l;
     }
 
     /** The small rounded square with G / M / B / cash sign used for "How to pay me". */

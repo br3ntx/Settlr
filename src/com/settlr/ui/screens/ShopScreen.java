@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import static com.settlr.ui.components.Ui.*;
+
 /**
  * Shop page (sidebar: Shop): your XP, the pet egg, and the hats and accessories you can buy.
  * Click an item to buy it; the pet egg gives a random pet. Pets you own show under "Owned".
@@ -44,7 +46,6 @@ public class ShopScreen extends BaseScreen {
 
     private final JLabel crumb = label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
     private final XpPill xpPill = new XpPill();
-    private final JLabel messageLabel = new JLabel(" ");
     private final RoundedButton hatchButton = new RoundedButton("Hatch for " + ShopCatalog.EGG_PRICE + " XP");
     private final SegmentedControl filter = new SegmentedControl(FILTERS, i -> fillGrid());
     private final JPanel grid = new JPanel(new GridLayout(0, 4, 26, 22));
@@ -177,11 +178,6 @@ public class ShopScreen extends BaseScreen {
 
     private void hatchEgg() {
         ShopDialog.egg(this, balance, this::reload);
-    }
-
-    private void showMessage(String text, boolean error) {
-        messageLabel.setForeground(error ? Theme.DANGER : Theme.MINT);
-        messageLabel.setText(text);
     }
 
     // =====================================================================
@@ -341,42 +337,6 @@ public class ShopScreen extends BaseScreen {
     // =====================================================================
     //  Small helpers
     // =====================================================================
-
-    static JLabel label(String text, int style, int size, Color color) {
-        JLabel l = new JLabel(text);
-        l.setFont(Theme.font(style, size));
-        l.setForeground(color);
-        return l;
-    }
-
-    static JPanel vertical() {
-        JPanel p = new JPanel();
-        p.setOpaque(false);
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        return p;
-    }
-
-    static JPanel centered(JComponent c) {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setOpaque(false);
-        p.add(c);
-        return p;
-    }
-
-    private static <T extends JComponent> T left(T c) {
-        c.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return c;
-    }
-
-    private static <T extends JComponent> T right(T c) {
-        c.setAlignmentX(Component.RIGHT_ALIGNMENT);
-        return c;
-    }
-
-    private static <T extends JComponent> T fitHeight(T c) {
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
-        return c;
-    }
 
     static String xp(int amount) {
         return NUMBER.format(amount) + " XP";

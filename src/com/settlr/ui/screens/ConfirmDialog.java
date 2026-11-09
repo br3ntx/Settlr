@@ -14,6 +14,8 @@ import javax.swing.text.View;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 
+import static com.settlr.ui.components.Ui.*;
+
 /**
  * A small "are you sure?" popup in the app's style, used instead of the plain Swing
  * JOptionPane. Optional avatar, a short line, an optional table of names and amounts,
@@ -187,10 +189,4 @@ public class ConfirmDialog extends ModalPopup {
         c.setAlignmentX(Component.LEFT_ALIGNMENT);
     }
 
-    private static JLabel label(String text, int style, int size, Color color) {
-        JLabel l = new JLabel(text);
-        l.setFont(Theme.font(style, size));
-        l.setForeground(color);
-        return l;
-    }
 }

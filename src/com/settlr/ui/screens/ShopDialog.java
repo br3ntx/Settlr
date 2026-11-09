@@ -9,6 +9,7 @@ import com.settlr.service.ShopService;
 import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
+import com.settlr.ui.components.Ui;
 import com.settlr.ui.theme.Theme;
 
 import javax.swing.*;
@@ -162,7 +163,7 @@ public final class ShopDialog extends ModalPopup {
         JPanel top = new JPanel(new BorderLayout());
         top.setOpaque(false);
         if (heading != null) {
-            JLabel h = ShopScreen.label(heading, Font.BOLD, 13, Theme.AMBER);
+            JLabel h = Ui.label(heading, Font.BOLD, 13, Theme.AMBER);
             h.setHorizontalAlignment(SwingConstants.CENTER);
             h.setBorder(new EmptyBorder(0, 32, 0, 0)); // balances the X so the heading is centered
             top.add(h, BorderLayout.CENTER);
@@ -174,13 +175,13 @@ public final class ShopDialog extends ModalPopup {
 
     private void bubble(ItemBubble bubble, int width, int height) {
         bubble.setPreferredSize(new Dimension(width, height));
-        JPanel holder = ShopScreen.centered(bubble);
+        JPanel holder = Ui.centered(bubble);
         fixed(holder, height);
         card.add(holder);
     }
 
     private void title(String text) {
-        JLabel l = ShopScreen.label(text, Font.BOLD, 22, Theme.TEXT);
+        JLabel l = Ui.label(text, Font.BOLD, 22, Theme.TEXT);
         l.setHorizontalAlignment(SwingConstants.CENTER);
         card.add(Box.createVerticalStrut(18));
         fixed(l, 30);
@@ -188,7 +189,7 @@ public final class ShopDialog extends ModalPopup {
     }
 
     private void line(String text, Color color) {
-        JLabel l = ShopScreen.label(text, Font.PLAIN, 13, color);
+        JLabel l = Ui.label(text, Font.PLAIN, 13, color);
         l.setHorizontalAlignment(SwingConstants.CENTER);
         card.add(Box.createVerticalStrut(6));
         fixed(l, 18);
@@ -196,7 +197,7 @@ public final class ShopDialog extends ModalPopup {
     }
 
     private JLabel errorLine() {
-        JLabel l = ShopScreen.label(" ", Font.PLAIN, 12, Theme.DANGER);
+        JLabel l = Ui.label(" ", Font.PLAIN, 12, Theme.DANGER);
         l.setHorizontalAlignment(SwingConstants.CENTER);
         card.add(Box.createVerticalStrut(6));
         fixed(l, 16);

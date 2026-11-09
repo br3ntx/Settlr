@@ -6,19 +6,16 @@ import com.settlr.model.Household;
 import com.settlr.model.OwnedPet;
 import com.settlr.model.RecurringBill;
 import com.settlr.model.SwapRequest;
-import com.settlr.model.SwapStatus;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
 import com.settlr.model.User;
-import com.settlr.service.HouseholdService;
+import com.settlr.service.HomeService;
+import com.settlr.service.PendingPayment;
 import com.settlr.service.PetService;
-import com.settlr.service.SettlementService;
-import com.settlr.service.ShopService;
-import com.settlr.service.SwapService;
-import com.settlr.service.TaskService;
 import com.settlr.ui.BaseScreen;
 import com.settlr.ui.Navigator;
 import com.settlr.ui.components.AvatarLabel;
+import com.settlr.ui.components.CheckCircle;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.StatusBadge;
@@ -31,15 +28,14 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
+import static com.settlr.ui.components.Ui.*;
 
 /**
  * Home page (sidebar: Home): your tasks on the left, your pet standing in the middle, and
@@ -57,17 +53,11 @@ public class HomeScreen extends BaseScreen {
     private static final DateTimeFormatter TODAY = DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.ENGLISH);
     private static final DateTimeFormatter BILL_DAY = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
 
-    private final TaskService taskService = new TaskService();
-    private final SwapService swapService = new SwapService();
-    private final SettlementService settlementService = new SettlementService();
-    private final HouseholdService householdService = new HouseholdService();
-    private final ShopService shopService = new ShopService();
-    private final PetService petService = new PetService();
+    private final HomeService homeService = new HomeService(); // everything Home shows (Facade)
 
     private final JLabel crumb = label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
     private final JLabel hello = label(" ", Font.BOLD, 30, Theme.PRIMARY);
     private final JLabel dateLabel = label(" ", Font.PLAIN, 13, Theme.MUTED_TEXT);
-    private final JLabel messageLabel = new JLabel(" ");
     private final JPanel body = new JPanel(new GridBagLayout());
     private final Timer resizeTimer = new Timer(150, e -> rebuildIfSizeChanged());
 
@@ -182,36 +172,16 @@ public class HomeScreen extends BaseScreen {
 
     private JComponent buildTasksCard() {
         GlassCard card = card();
-        List<TaskAssignment> overdue = new ArrayList<>();
-        List<TaskAssignment> today = new ArrayList<>();
-        List<SwapRequest> swaps;
-        TaskAssignment next = null;
+        HomeService.TaskSummary tasks;
         try {
-            int myId = me().getId();
-            for (TaskAssignment a : taskService.getOverdue()) {
-                if (a.getAssigneeId() == myId) {
-                    overdue.add(a);
-                }
-            }
-            LocalDateTime now = LocalDateTime.now();
-            for (TaskAssignment a : taskService.getMyTasksDueToday()) {
-                if (a.getStatus() == TaskStatus.PENDING && !a.getDueAt().isBefore(now)) {
-                    today.add(a);
-                }
-            }
-            today.sort(Comparator.comparing(TaskAssignment::getDueAt));
-            swaps = new ArrayList<>();
-            for (SwapRequest s : swapService.getIncoming()) { // only ones still waiting for an answer
-                if (s.getStatus() == SwapStatus.PENDING && s.getAssignmentDueAt().isAfter(now)) {
-                    swaps.add(s);
-                }
-            }
-            if (overdue.isEmpty() && today.isEmpty()) {
-                next = nextTurn(myId);
-            }
+            tasks = homeService.getTasks();
         } catch (SettlrException e) {
             return errorCard(card, "Your tasks", e);
         }
+        List<TaskAssignment> overdue = tasks.getOverdue();
+        List<TaskAssignment> today = tasks.getDueToday();
+        List<SwapRequest> swaps = tasks.getSwaps();
+        TaskAssignment next = tasks.getNext();
 
         JPanel head = new JPanel(new BorderLayout());
         head.setOpaque(false);
@@ -281,7 +251,7 @@ public class HomeScreen extends BaseScreen {
             JPanel row = new JPanel(new BorderLayout(10, 0));
             row.setOpaque(false);
             row.setBorder(new EmptyBorder(6, 0, 6, 0));
-            row.add(centered(new TasksScreen.CheckCircle(TaskStatus.PENDING, overdue, true, () -> complete(a))),
+            row.add(centered(new CheckCircle(TaskStatus.PENDING, overdue, true, () -> complete(a))),
                     BorderLayout.WEST);
             JPanel text = vertical();
             JPanel titleLine = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
@@ -300,30 +270,10 @@ public class HomeScreen extends BaseScreen {
         }
     }
 
-    /** Your next pending turn after now (this week or next), including turns not created yet. */
-    private TaskAssignment nextTurn(int myId) throws SettlrException {
-        LocalDateTime now = LocalDateTime.now();
-        TaskAssignment best = null;
-        for (LocalDate week : new LocalDate[] {LocalDate.now(), LocalDate.now().plusDays(7)}) {
-            List<TaskAssignment> all = new ArrayList<>(taskService.getWeek(week));
-            all.addAll(taskService.getPlannedTurns(week));
-            for (TaskAssignment a : all) {
-                if (a.getAssigneeId() == myId && a.getStatus() == TaskStatus.PENDING && a.getDueAt().isAfter(now)
-                        && (best == null || a.getDueAt().isBefore(best.getDueAt()))) {
-                    best = a;
-                }
-            }
-            if (best != null) {
-                return best;
-            }
-        }
-        return null;
-    }
-
     private void complete(TaskAssignment a) {
-        boolean late = a.getDueAt().isBefore(LocalDateTime.now());
+        boolean late;
         try {
-            taskService.completeAssignment(a.getId());
+            late = homeService.completeTask(a);
         } catch (SettlrException e) {
             rebuild();
             showMessage(e.getMessage(), true);
@@ -336,11 +286,7 @@ public class HomeScreen extends BaseScreen {
 
     private void answerSwap(SwapRequest s, boolean accept) {
         try {
-            if (accept) {
-                swapService.accept(s.getId());
-            } else {
-                swapService.decline(s.getId());
-            }
+            homeService.answerSwap(s, accept);
         } catch (SettlrException e) {
             rebuild();
             showMessage(e.getMessage(), true);
@@ -357,19 +303,9 @@ public class HomeScreen extends BaseScreen {
 
     private JComponent buildPetArea() {
         JPanel area = vertical();
-        int balance;
-        int thisWeek;
-        List<OwnedPet> pets;
-        String shownCode;
-        PetService.Mood mood = null;
+        HomeService.PetSummary pet;
         try {
-            balance = shopService.getBalance();
-            thisWeek = petService.getXpThisWeek();
-            pets = petService.getMyPets();
-            shownCode = petService.getShownPetCode(pets);
-            if (shownCode != null) {
-                mood = petService.getMood();
-            }
+            pet = homeService.getPet();
         } catch (DataAccessException e) {
             e.printStackTrace();
             JLabel l = label("<html><div style='text-align:center;width:260px'>Can't load your pet. If MySQL is "
@@ -386,30 +322,27 @@ public class HomeScreen extends BaseScreen {
 
         area.add(Box.createVerticalGlue());
         ShopScreen.XpPill pill = new ShopScreen.XpPill();
-        pill.setXp(balance);
+        pill.setXp(pet.getXp());
         area.add(center(pill));
         area.add(Box.createVerticalStrut(5));
+        int thisWeek = pet.getXpThisWeek();
         area.add(center(label((thisWeek > 0 ? "+" : "") + thisWeek + " XP this week", Font.PLAIN, 12,
                 Theme.MUTED_TEXT)));
 
         PetFigure figure = new PetFigure(Math.min(centerWidth, figureSize + 10), figureSize);
         area.add(center(figure));
 
-        if (shownCode == null) {
+        OwnedPet shown = pet.getShown();
+        if (shown == null) {
             area.add(center(label("No pet yet", Font.BOLD, 22, Theme.TEXT)));
             area.add(Box.createVerticalStrut(4));
-            boolean enough = balance >= com.settlr.model.ShopCatalog.EGG_PRICE;
-            area.add(left(fitHeight(lines("Hatch a pet egg in the Shop to get one." + (enough ? " You have enough XP!" : ""),
+            area.add(left(fitHeight(lines("Hatch a pet egg in the Shop to get one."
+                            + (pet.canAffordEgg() ? " You have enough XP!" : ""),
                     13, Theme.MUTED_TEXT, Math.min(centerWidth - 10, 300), true))));
             area.add(Box.createVerticalStrut(16));
             area.add(center(bigButton("Go to Shop", () -> Navigator.getInstance().show(Navigator.SHOP))));
         } else {
-            OwnedPet shown = null;
-            for (OwnedPet p : pets) {
-                if (p.getPet().getCode().equals(shownCode)) {
-                    shown = p;
-                }
-            }
+            PetService.Mood mood = pet.getMood();
             figure.setPet(shown);
             area.add(center(fitted(shown.getDisplayName(), 26, Theme.TEXT, centerWidth)));
             area.add(Box.createVerticalStrut(2));
@@ -424,7 +357,8 @@ public class HomeScreen extends BaseScreen {
             moodPill.setToolTipText(shown.getDisplayName() + " is " + feeling);
             area.add(center(moodPill));
             area.add(Box.createVerticalStrut(16));
-            area.add(center(bigButton("Edit pet", () -> editPet(pets, shownCode))));
+            String shownCode = shown.getPet().getCode();
+            area.add(center(bigButton("Edit pet", () -> editPet(pet.getPets(), shownCode))));
         }
         area.add(Box.createVerticalGlue());
         return area;
@@ -433,7 +367,7 @@ public class HomeScreen extends BaseScreen {
     private void editPet(List<OwnedPet> pets, String shownCode) {
         Set<String> owned;
         try {
-            owned = shopService.getOwnedCodes();
+            owned = homeService.getOwnedCodes();
         } catch (SettlrException e) {
             showMessage(e.getMessage(), true);
             return;
@@ -450,13 +384,9 @@ public class HomeScreen extends BaseScreen {
 
     private JComponent buildMoneyCard() {
         GlassCard card = card();
-        List<SettlementService.Person> people;
-        List<SettlementService.Incoming> waiting;
-        List<RecurringBill> bills;
+        HomeService.MoneySummary money;
         try {
-            people = settlementService.getPeople();
-            waiting = settlementService.getWaitingForMe();
-            bills = householdService.getBills();
+            money = homeService.getMoney();
         } catch (SettlrException e) {
             return errorCard(card, "Money", e);
         }
@@ -464,19 +394,11 @@ public class HomeScreen extends BaseScreen {
         card.add(left(label("Money", Font.BOLD, 16, Theme.TEXT)));
         card.add(Box.createVerticalStrut(12));
 
-        BigDecimal iOwe = BigDecimal.ZERO;
-        BigDecimal owedToMe = BigDecimal.ZERO;
-        List<String> owe = new ArrayList<>();
-        List<String> owing = new ArrayList<>();
-        for (SettlementService.Person p : people) {
-            if (p.getNet().signum() < 0) {
-                iOwe = iOwe.add(p.getNet().negate());
-                owe.add(p.getUser().getDisplayName());
-            } else if (p.getNet().signum() > 0) {
-                owedToMe = owedToMe.add(p.getNet());
-                owing.add(p.getUser().getDisplayName());
-            }
-        }
+        BigDecimal iOwe = money.getIOwe();
+        BigDecimal owedToMe = money.getOwedToMe();
+        List<String> owe = money.getPeopleIOwe();
+        List<String> owing = money.getPeopleWhoOweMe();
+        List<PendingPayment> waiting = money.getWaiting();
         if (iOwe.signum() > 0) {
             card.add(left(label("You owe", Font.PLAIN, 12, Theme.MUTED_TEXT)));
             card.add(left(fitted(whole(iOwe), 26, Theme.DANGER, sideWidth - 2 * CARD_PAD)));
@@ -507,26 +429,13 @@ public class HomeScreen extends BaseScreen {
             }
         }
 
-        RecurringBill nextBill = null;
-        LocalDate nextDue = null;
-        int myId = me().getId();
-        for (RecurringBill b : bills) {
-            if (!b.isActive() || !b.getMemberIds().contains(myId)) {
-                continue;
-            }
-            LocalDate due = nextDueDate(b.getDueDay());
-            if (nextDue == null || due.isBefore(nextDue)) {
-                nextBill = b;
-                nextDue = due;
-            }
-        }
+        RecurringBill nextBill = money.getNextBill();
         if (nextBill != null) {
             card.add(group("NEXT BILL", Theme.MUTED_TEXT));
             card.add(left(label(nextBill.getTitle(), Font.BOLD, 14, Theme.TEXT)));
-            BigDecimal share = nextBill.getAmount()
-                    .divide(BigDecimal.valueOf(nextBill.getMemberIds().size()), 2, RoundingMode.HALF_UP);
-            String who = nextBill.getPaidBy() == myId ? "you pay it" : "your share " + whole(share);
-            card.add(left(fitHeight(wrapped("Due " + BILL_DAY.format(nextDue) + DOT + who, 12, Theme.MUTED_TEXT))));
+            String who = money.isIPayNextBill() ? "you pay it" : "your share " + whole(nextBill.shareEach());
+            card.add(left(fitHeight(wrapped("Due " + BILL_DAY.format(money.getNextBillDue()) + DOT + who, 12,
+                    Theme.MUTED_TEXT))));
         }
 
         card.add(Box.createVerticalGlue());
@@ -535,52 +444,39 @@ public class HomeScreen extends BaseScreen {
         return card;
     }
 
-    private JPanel waitingRow(SettlementService.Incoming in) {
+    /** One payment waiting for me, settle up or single payment alike (PendingPayment, Adapter). */
+    private JPanel waitingRow(PendingPayment p) {
         JPanel row = new JPanel(new BorderLayout(10, 0));
         row.setOpaque(false);
         row.setBorder(new EmptyBorder(6, 0, 6, 0));
-        String from = in.getFromName();
-        BigDecimal amount = in.getSettlement().getAmount();
+        String from = p.getFromName();
         row.add(centered(new AvatarLabel(from, 30)), BorderLayout.WEST);
         JPanel text = vertical();
-        text.add(left(label(amount.signum() == 0 ? from + " says you're even" : from + " paid " + whole(amount),
+        text.add(left(label(p.getAmount().signum() == 0 ? from + " says you're even" : from + " paid " + whole(p.getAmount()),
                 Font.BOLD, 13, Theme.TEXT)));
-        text.add(left(label(in.getSummary(), Font.PLAIN, 11, Theme.MUTED_TEXT)));
+        text.add(left(label(p.getDetails(), Font.PLAIN, 11, Theme.MUTED_TEXT)));
         row.add(text, BorderLayout.CENTER);
         RoundedButton confirm = RoundedButton.mint("Confirm");
         confirm.setArc(RoundedButton.PILL);
         confirm.setFont(Theme.font(Font.BOLD, 11));
         confirm.setMargin(new Insets(0, 0, 0, 0));
         confirm.setPreferredSize(new Dimension(72, 26));
-        int id = in.getSettlement().getId();
-        confirm.addActionListener(e -> new ConfirmDialog(amount.signum() == 0
-                ? "Are you and " + from + " even?" : "Did " + from + " pay you " + whole(amount) + "?",
-                "This settles everything between you two. To mark it as not received, go to Expenses.")
+        confirm.addActionListener(e -> new ConfirmDialog(p.getConfirmQuestion(),
+                p.getConfirmExplanation() + " To mark it as not received, go to Expenses.")
                 .buttons("Not yet", "Yes, confirm", false, () -> {
                     try {
-                        settlementService.confirm(id);
+                        p.confirm();
                     } catch (SettlrException ex) {
                         rebuild();
                         showMessage(ex.getMessage(), true);
                         return;
                     }
                     rebuild();
-                    showMessage("Confirmed. You and " + from + " are settled up.", false);
+                    showMessage(p.getConfirmedMessage(), false);
                 })
                 .showOver(this));
         row.add(centered(confirm), BorderLayout.EAST);
         return row;
-    }
-
-    /** The bill's next due date from today: this month if the day hasn't passed, else next month. */
-    private static LocalDate nextDueDate(int dueDay) {
-        LocalDate today = LocalDate.now();
-        LocalDate thisMonth = today.withDayOfMonth(Math.min(dueDay, today.lengthOfMonth()));
-        if (!thisMonth.isBefore(today)) {
-            return thisMonth;
-        }
-        LocalDate next = today.plusMonths(1);
-        return next.withDayOfMonth(Math.min(dueDay, next.lengthOfMonth()));
     }
 
     // =====================================================================
@@ -596,11 +492,6 @@ public class HomeScreen extends BaseScreen {
             e.printStackTrace();
         }
         return card;
-    }
-
-    private void showMessage(String text, boolean error) {
-        messageLabel.setForeground(error ? Theme.DANGER : Theme.MINT);
-        messageLabel.setText(text);
     }
 
     private static User me() {
@@ -706,18 +597,6 @@ public class HomeScreen extends BaseScreen {
         return b;
     }
 
-    private static JLabel label(String text, int style, int size, Color color) {
-        return ShopScreen.label(text, style, size, color);
-    }
-
-    private static JPanel vertical() {
-        return ShopScreen.vertical();
-    }
-
-    private static JPanel centered(JComponent c) {
-        return ShopScreen.centered(c);
-    }
-
     /** Centers a component horizontally inside a vertical BoxLayout. */
     private static JComponent center(JComponent c) {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
@@ -726,16 +605,6 @@ public class HomeScreen extends BaseScreen {
         p.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
         p.setAlignmentX(Component.LEFT_ALIGNMENT); // same as the rows around it, or BoxLayout shifts them
         return p;
-    }
-
-    private static <T extends JComponent> T left(T c) {
-        c.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return c;
-    }
-
-    private static <T extends JComponent> T fitHeight(T c) {
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
-        return c;
     }
 
     /** "Mochi is happy: ..." in a soft mint pill, or red when sad. */

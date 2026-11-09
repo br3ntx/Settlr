@@ -1,12 +1,11 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ExpenseDao;
 import com.settlr.dao.ExpenseShareDao;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.PaymentDao;
 import com.settlr.dao.SettlementDao;
-import com.settlr.exception.AuthException;
-import com.settlr.exception.DataAccessException;
 import com.settlr.exception.NotFoundException;
 import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
@@ -18,13 +17,11 @@ import com.settlr.model.Payment;
 import com.settlr.model.PaymentStatus;
 import com.settlr.model.Settlement;
 import com.settlr.model.User;
-import com.settlr.util.DBConnection;
+import com.settlr.util.Transaction;
 import com.settlr.util.MoneyUtil;
 import com.settlr.util.Session;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -49,6 +46,10 @@ import java.util.Set;
  * Amounts follow BalanceService: a share counts as owed until a payment for it is confirmed.
  */
 public class SettlementService {
+
+    private final Session session = Session.getInstance();
+
+    private static final String SAVE_FAILED = "Could not save the settle up. Please try again.";
 
     /** One open share between the current user and another person. Read-only. */
     public static final class ShareLine {
@@ -162,16 +163,11 @@ public class SettlementService {
         public String getSummary() { return summary; }
     }
 
-    @FunctionalInterface
-    private interface TransactionBody {
-        void run(Connection c) throws SettlrException;
-    }
-
-    private final SettlementDao settlementDao = new SettlementDao();
-    private final PaymentDao paymentDao = new PaymentDao();
-    private final ExpenseShareDao shareDao = new ExpenseShareDao();
-    private final ExpenseDao expenseDao = new ExpenseDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final SettlementDao settlementDao = DaoFactory.get().settlements();
+    private final PaymentDao paymentDao = DaoFactory.get().payments();
+    private final ExpenseShareDao shareDao = DaoFactory.get().shares();
+    private final ExpenseDao expenseDao = DaoFactory.get().expenses();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
     private final ActivityService activityService = new ActivityService();
 
     // =====================================================================
@@ -183,8 +179,8 @@ public class SettlementService {
      * who owe me, then everyone who is settled up. Names A to Z inside each group.
      */
     public List<Person> getPeople() throws SettlrException {
-        User me = currentUser();
-        int householdId = currentHouseholdId();
+        User me = session.requireUser();
+        int householdId = session.requireHouseholdId();
         Context ctx = new Context(householdId);
 
         List<Person> people = new ArrayList<>();
@@ -201,8 +197,8 @@ public class SettlementService {
 
     /** Where the current user stands with one member. */
     public Person getPerson(int otherUserId) throws SettlrException {
-        User me = currentUser();
-        int householdId = currentHouseholdId();
+        User me = session.requireUser();
+        int householdId = session.requireHouseholdId();
         for (User other : membershipDao.findActiveMembers(householdId)) {
             if (other.getId() == otherUserId && other.getId() != me.getId()) {
                 return buildPerson(me, other, new Context(householdId));
@@ -218,7 +214,7 @@ public class SettlementService {
      * warned before removing someone who owes.
      */
     public List<Person> getDebtsOf(int userId) throws SettlrException {
-        int householdId = currentHouseholdId();
+        int householdId = session.requireHouseholdId();
         List<User> members = membershipDao.findActiveMembers(householdId);
         User target = null;
         for (User u : members) {
@@ -245,8 +241,8 @@ public class SettlementService {
 
     /** Settle ups the current user has to confirm or reject, oldest first. */
     public List<Incoming> getWaitingForMe() throws SettlrException {
-        User me = currentUser();
-        int householdId = currentHouseholdId();
+        User me = session.requireUser();
+        int householdId = session.requireHouseholdId();
         Map<Integer, String> names = memberNames(householdId);
         Map<Integer, Expense> expenses = new HashMap<>();
 
@@ -267,7 +263,7 @@ public class SettlementService {
 
     /** Ids of shares in this household with a payment waiting to be confirmed (for "pending" labels). */
     public Set<Integer> getPendingShareIds() throws SettlrException {
-        return paymentDao.findPendingShareIds(currentHouseholdId());
+        return paymentDao.findPendingShareIds(session.requireHouseholdId());
     }
 
     // =====================================================================
@@ -291,8 +287,8 @@ public class SettlementService {
      */
     public Settlement settleUp(int otherUserId, String note, Collection<Integer> onlyShareIds)
             throws SettlrException {
-        User me = currentUser();
-        int householdId = currentHouseholdId();
+        User me = session.requireUser();
+        int householdId = session.requireHouseholdId();
         Person person = getPerson(otherUserId);
         String name = person.getUser().getDisplayName();
 
@@ -336,7 +332,7 @@ public class SettlementService {
             payments.add(newPayment(line, otherUserId, me.getId(), now, "Cancelled out in a settle up"));
         }
 
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             int id = settlementDao.insert(c, settlement);
             for (Payment p : payments) {
                 p.setSettlementId(id);
@@ -355,7 +351,7 @@ public class SettlementService {
         LocalDateTime now = LocalDateTime.now();
         List<Payment> payments = paymentDao.findBySettlement(s.getId());
 
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             for (Payment p : payments) {
                 if (p.getStatus() != PaymentStatus.PENDING) {
                     continue;
@@ -389,7 +385,7 @@ public class SettlementService {
         Settlement s = loadPendingForReceiver(settlementId);
         LocalDateTime now = LocalDateTime.now();
         List<Payment> payments = paymentDao.findBySettlement(s.getId());
-        runInTransaction(c -> {
+        Transaction.run(SAVE_FAILED, c -> {
             for (Payment p : payments) {
                 if (p.getStatus() == PaymentStatus.PENDING) {
                     p.setStatus(PaymentStatus.REJECTED);
@@ -509,8 +505,8 @@ public class SettlementService {
     }
 
     private Settlement loadPendingForReceiver(int settlementId) throws SettlrException {
-        User me = currentUser();
-        int householdId = currentHouseholdId();
+        User me = session.requireUser();
+        int householdId = session.requireHouseholdId();
         Settlement s = settlementDao.findById(settlementId);
         if (s == null || s.getHouseholdId() != householdId) {
             throw new NotFoundException("That settle up could not be found.");
@@ -545,34 +541,4 @@ public class SettlementService {
         return names;
     }
 
-    private void runInTransaction(TransactionBody body) throws SettlrException {
-        try (Connection c = DBConnection.getInstance().getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                body.run(c);
-                c.commit();
-            } catch (SettlrException | RuntimeException e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (SQLException e) {
-            throw new DataAccessException("Could not save the settle up. Please try again.", e);
-        }
-    }
-
-    private User currentUser() throws SettlrException {
-        Session session = Session.getInstance();
-        if (!session.isLoggedIn()) {
-            throw new AuthException("Please log in first.");
-        }
-        return session.getCurrentUser();
-    }
-
-    private int currentHouseholdId() throws SettlrException {
-        currentUser();
-        if (Session.getInstance().getCurrentHousehold() == null) {
-            throw new PermissionDeniedException("Please create or join a household first.");
-        }
-        return Session.getInstance().getCurrentHousehold().getId();
-    }
 }

@@ -1,6 +1,5 @@
 package com.settlr.ui.screens;
 
-import com.settlr.dao.UserDao;
 import com.settlr.exception.SettlrException;
 import com.settlr.model.Household;
 import com.settlr.model.RecurringBill;
@@ -27,7 +26,6 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Ellipse2D;
-import java.awt.geom.RoundRectangle2D;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -35,6 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import static com.settlr.ui.components.Ui.*;
 
 /**
  * Household page (sidebar: Household):
@@ -54,10 +54,8 @@ public class HouseholdScreen extends BaseScreen {
 
     private final HouseholdService householdService = new HouseholdService();
     private final SettlementService settlementService = new SettlementService();
-    private final UserDao userDao = new UserDao();
 
     private final JLabel crumb = label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
-    private final JLabel messageLabel = new JLabel(" ");
     private final JPanel columns = new JPanel(new GridBagLayout());
 
     public HouseholdScreen() {
@@ -508,11 +506,6 @@ public class HouseholdScreen extends BaseScreen {
         showMessage(message, false);
     }
 
-    private void showMessage(String text, boolean isError) {
-        messageLabel.setForeground(isError ? Theme.DANGER : Theme.MINT);
-        messageLabel.setText(text);
-    }
-
     // =====================================================================
     //  Small helpers
     // =====================================================================
@@ -522,7 +515,7 @@ public class HouseholdScreen extends BaseScreen {
             return userId == Session.getInstance().getCurrentUser().getId() ? "You" : names.get(userId);
         }
         try {
-            User u = userDao.findById(userId);
+            User u = householdService.findUser(userId);
             return u == null ? "A former member" : u.getDisplayName();
         } catch (SettlrException e) {
             return "A former member";
@@ -582,13 +575,6 @@ public class HouseholdScreen extends BaseScreen {
         return right;
     }
 
-    private static JPanel centered(JComponent c) {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setOpaque(false);
-        p.add(c);
-        return p;
-    }
-
     private static GlassCard card() {
         GlassCard card = new GlassCard(null);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -622,23 +608,6 @@ public class HouseholdScreen extends BaseScreen {
         return b;
     }
 
-    private static JPanel vertical() {
-        JPanel p = new JPanel();
-        p.setOpaque(false);
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        return p;
-    }
-
-    private static <T extends JComponent> T left(T c) {
-        c.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return c;
-    }
-
-    private static <T extends JComponent> T fitHeight(T c) {
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
-        return c;
-    }
-
     /** Lets the GridBag weights decide the column widths instead of the content. */
     private static JComponent narrow(JComponent c) {
         JPanel p = new JPanel(new BorderLayout()) {
@@ -650,13 +619,6 @@ public class HouseholdScreen extends BaseScreen {
         p.setOpaque(false);
         p.add(c, BorderLayout.CENTER);
         return p;
-    }
-
-    private static JLabel label(String text, int style, int size, Color color) {
-        JLabel l = new JLabel(text);
-        l.setFont(Theme.font(style, size));
-        l.setForeground(color);
-        return l;
     }
 
     /** The round "\u00B7\u00B7\u00B7" button that opens a small dark menu. */

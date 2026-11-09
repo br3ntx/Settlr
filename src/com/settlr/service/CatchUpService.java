@@ -1,5 +1,6 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.SwapRequestDao;
 import com.settlr.dao.TaskAssignmentDao;
@@ -32,10 +33,10 @@ public class CatchUpService {
     /** A PENDING assignment this long past its due time becomes MISSED (3.3). */
     private static final int MISSED_AFTER_HOURS = 24;
 
-    private final TaskDao taskDao = new TaskDao();
-    private final TaskAssignmentDao assignmentDao = new TaskAssignmentDao();
-    private final SwapRequestDao swapDao = new SwapRequestDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final TaskDao taskDao = DaoFactory.get().tasks();
+    private final TaskAssignmentDao assignmentDao = DaoFactory.get().assignments();
+    private final SwapRequestDao swapDao = DaoFactory.get().swaps();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
     private final ActivityService activityService = new ActivityService();
     private final ExpenseService expenseService = new ExpenseService();
 

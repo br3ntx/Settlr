@@ -1,5 +1,6 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.HouseholdDao;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.UserDao;
@@ -26,9 +27,9 @@ public class AuthService {
     /** Shortest password allowed (register and change password). */
     public static final int MIN_PASSWORD_LENGTH = 6;
 
-    private final UserDao userDao = new UserDao();
-    private final HouseholdDao householdDao = new HouseholdDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final UserDao userDao = DaoFactory.get().users();
+    private final HouseholdDao householdDao = DaoFactory.get().households();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
 
     /**
      * Checks the username and password, then starts the Session.

@@ -1,25 +1,19 @@
 package com.settlr.ui.screens;
 
-import com.settlr.model.Cosmetic;
 import com.settlr.model.OwnedPet;
-import com.settlr.ui.components.PetArt;
-import com.settlr.ui.theme.Theme;
+import com.settlr.ui.pet.PetDrawings;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
-import java.awt.geom.RoundRectangle2D;
-import java.awt.image.BufferedImage;
 
 /**
- * The pet standing in the open (no box): a soft glow behind it and the pet's picture (PetArt),
- * which has its own shadow. A pet with no picture yet is a dashed circle. What it wears shows as
- * small labels around it (hat on top, glasses on the left, neck item lower right) until the items
- * have pictures too. With no pet, it shows the pet egg.
+ * The pet standing in the open (no box): a soft glow behind it, then the pet in its outfit.
+ * The pet and each item it wears are drawn by a chain of decorators (see com.settlr.ui.pet),
+ * so this class only paints the glow and hands the rest to PetDrawings.of(pet).
+ * With no pet (null), it shows the pet egg.
  */
 class PetFigure extends JComponent {
-
-    private static final Color LABEL_TEXT = new Color(0xC9D0CC);
 
     private OwnedPet pet; // null = no pet yet
 
@@ -42,92 +36,14 @@ class PetFigure extends JComponent {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         int w = getWidth(), h = getHeight();
-        float d = Math.min(w, h) * 0.6f;          // the pet's circle
-        float cx = w / 2f, cy = h * 0.47f;
+        float cx = w / 2f, cy = h * 0.5f;
 
-        // glow behind
         float glow = Math.min(w, h) * 0.98f;
-        g2.setPaint(new RadialGradientPaint(cx, cy, glow / 2,
+        g2.setPaint(new RadialGradientPaint(cx, h * 0.47f, glow / 2,
                 new float[] {0f, 1f}, new Color[] {new Color(232, 217, 205, 26), new Color(232, 217, 205, 0)}));
-        g2.fill(new Ellipse2D.Float(cx - glow / 2, cy - glow / 2, glow, glow));
+        g2.fill(new Ellipse2D.Float(cx - glow / 2, h * 0.47f - glow / 2, glow, glow));
 
-        BufferedImage picture = pet == null ? PetArt.egg() : PetArt.of(pet.getPet());
-        if (picture != null) {
-            float box = Math.min(w, h) * 0.86f;
-            PetArt.draw(g2, picture, cx - box / 2, h * 0.5f - box / 2, box, box);
-            if (pet != null) {
-                drawOutfit(g2, cx, h * 0.5f, box * 0.72f);
-            }
-            g2.dispose();
-            return;
-        }
-
-        // no picture: a dashed circle with a shadow under it
-        float sw = d * 0.85f, sh = d * 0.11f, sy = cy + d / 2 + d * 0.1f;
-        g2.setPaint(new RadialGradientPaint(cx, sy + sh / 2, sw / 2,
-                new float[] {0f, 1f}, new Color[] {new Color(0, 0, 0, 80), new Color(0, 0, 0, 0)}));
-        g2.fill(new Ellipse2D.Float(cx - sw / 2, sy, sw, sh));
-
-        Shape circle = new Ellipse2D.Float(cx - d / 2, cy - d / 2, d, d);
-        boolean mystery = pet == null;
-        g2.setColor(mystery ? new Color(201, 164, 110, 22) : new Color(46, 59, 59, 160));
-        g2.fill(circle);
-        g2.setColor(mystery ? new Color(201, 164, 110, 150) : new Color(232, 217, 205, 95));
-        g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10f,
-                new float[] {6f, 5f}, 0f));
-        g2.draw(circle);
-
-        if (mystery) {
-            g2.setFont(Theme.font(Font.BOLD, Math.round(d * 0.34f)));
-            g2.setColor(Theme.AMBER);
-            centered(g2, "?", cx, cy);
-        } else {
-            g2.setColor(Theme.MUTED_TEXT);
-            g2.setFont(Theme.font(Font.BOLD, Math.max(10, Math.round(d / 13))));
-            FontMetrics fm = g2.getFontMetrics();
-            centered(g2, "Pet picture", cx, cy - fm.getHeight() / 2f);
-            centered(g2, "goes here", cx, cy + fm.getHeight() / 2f);
-
-            drawOutfit(g2, cx, cy, d);
-        }
+        PetDrawings.of(pet).draw(g2, cx, cy, Math.min(w, h) * 0.86f);
         g2.dispose();
-    }
-
-    /** What the pet wears, as labels around a pet of size d centered on (cx, cy). */
-    private void drawOutfit(Graphics2D g2, float cx, float cy, float d) {
-        g2.setFont(Theme.font(Font.BOLD, 10));
-        Cosmetic hat = pet.getItem(Cosmetic.Slot.HAT);
-        Cosmetic glasses = pet.getItem(Cosmetic.Slot.GLASSES);
-        Cosmetic neck = pet.getItem(Cosmetic.Slot.NECK);
-        if (hat != null) {
-            chip(g2, hat.getName(), cx, cy - d / 2 - 4, true);
-        }
-        if (glasses != null) {
-            chip(g2, glasses.getName(), cx - d * 0.42f, cy - d * 0.2f, true);
-        }
-        if (neck != null) {
-            chip(g2, neck.getName(), cx + d * 0.42f, cy + d * 0.36f, true);
-        }
-    }
-
-    private static void centered(Graphics2D g2, String text, float cx, float cy) {
-        FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(text, cx - fm.stringWidth(text) / 2f, cy - fm.getHeight() / 2f + fm.getAscent());
-    }
-
-    /** A small label centered on (cx, cy), drawn on a solid background so it reads over the circle. */
-    private static void chip(Graphics2D g2, String text, float cx, float cy, boolean upper) {
-        String t = upper ? text.toUpperCase() : text;
-        FontMetrics fm = g2.getFontMetrics();
-        float cw = fm.stringWidth(t) + 16, ch = 20;
-        float x = cx - cw / 2, y = cy - ch / 2;
-        Shape pill = new RoundRectangle2D.Float(x, y, cw, ch, ch, ch);
-        g2.setColor(new Color(0x34403F));
-        g2.fill(pill);
-        g2.setColor(new Color(255, 255, 255, 40));
-        g2.setStroke(new BasicStroke(1f));
-        g2.draw(pill);
-        g2.setColor(LABEL_TEXT);
-        g2.drawString(t, x + 8, y + (ch - fm.getHeight()) / 2 + fm.getAscent());
     }
 }

@@ -7,7 +7,7 @@ import java.util.Map;
  * One of the user's pets, with the name they gave it and what it's wearing: at most one
  * cosmetic per slot (a hat, glasses, something on the neck). Each pet keeps its own outfit.
  */
-public class OwnedPet {
+public class OwnedPet implements Prototype<OwnedPet> {
 
     public static final int MAX_NAME_LENGTH = 20;
 
@@ -26,6 +26,7 @@ public class OwnedPet {
      * PROTOTYPE pattern: a new OwnedPet is made by copying an existing one.
      * PetEditDialog changes the copy, so Cancel just throws it away and the real pet is untouched.
      */
+    @Override
     public OwnedPet copy() {
         OwnedPet c = new OwnedPet(pet);
         c.name = name;

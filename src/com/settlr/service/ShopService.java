@@ -1,7 +1,7 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ShopDao;
-import com.settlr.exception.DataAccessException;
 import com.settlr.exception.NotFoundException;
 import com.settlr.exception.SettlrException;
 import com.settlr.exception.ValidationException;
@@ -9,13 +9,10 @@ import com.settlr.model.Cosmetic;
 import com.settlr.model.Pet;
 import com.settlr.model.ShopCatalog;
 import com.settlr.model.ShopItem;
-import com.settlr.model.User;
-import com.settlr.util.DBConnection;
+import com.settlr.util.Transaction;
 import com.settlr.util.Session;
 
 import java.security.SecureRandom;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -26,6 +23,10 @@ import java.util.Set;
  * Every purchase checks the balance and saves in one transaction.
  */
 public class ShopService {
+
+    private final Session session = Session.getInstance();
+
+    private static final String SAVE_FAILED = "Could not save your purchase. Please try again.";
 
     /** What hatched from a pet egg. */
     public static final class HatchResult {
@@ -47,11 +48,7 @@ public class ShopService {
         public int getBalanceAfter() { return balanceAfter; }
     }
 
-    private interface TransactionBody<T> {
-        T run(Connection c) throws SettlrException;
-    }
-
-    private final ShopDao shopDao = new ShopDao();
+    private final ShopDao shopDao = DaoFactory.get().shop();
     private final Random random;
 
     public ShopService() {
@@ -65,12 +62,12 @@ public class ShopService {
 
     /** The current user's XP. */
     public int getBalance() throws SettlrException {
-        return shopDao.findBalance(me().getId());
+        return shopDao.findBalance(session.requireUser().getId());
     }
 
     /** Codes of the hats and pets the current user owns. */
     public Set<String> getOwnedCodes() throws SettlrException {
-        return shopDao.findOwnedCodes(me().getId());
+        return shopDao.findOwnedCodes(session.requireUser().getId());
     }
 
     /** Buys a hat or accessory. Returns the XP left. */
@@ -80,8 +77,8 @@ public class ShopService {
             throw new NotFoundException("That item isn't in the Shop.");
         }
         Cosmetic cosmetic = (Cosmetic) item;
-        int userId = me().getId();
-        return runInTransaction(c -> {
+        int userId = session.requireUser().getId();
+        return Transaction.get(SAVE_FAILED, c -> {
             shopDao.lockUser(c, userId);
             if (shopDao.findOwnedCodes(c, userId).contains(cosmetic.getCode())) {
                 throw new ValidationException("You already have the " + cosmetic.getName() + ".");
@@ -99,9 +96,9 @@ public class ShopService {
      * A pet you already have gives half the price back instead.
      */
     public HatchResult hatchEgg() throws SettlrException {
-        int userId = me().getId();
+        int userId = session.requireUser().getId();
         Pet pet = rollPet();
-        return runInTransaction(c -> {
+        return Transaction.get(SAVE_FAILED, c -> {
             shopDao.lockUser(c, userId);
             int balance = shopDao.findBalance(c, userId);
             requireEnough(balance, ShopCatalog.EGG_PRICE);
@@ -128,7 +125,8 @@ public class ShopService {
         return Math.round(100f * rarity.getWeight() / total);
     }
 
-    private Pet rollPet() {
+    /** Picks a rarity by its weight, then a pet of that rarity. Package-private so the tests can call it. */
+    Pet rollPet() {
         int total = 0;
         for (Pet.Rarity r : Pet.Rarity.values()) {
             total += r.getWeight();
@@ -155,27 +153,4 @@ public class ShopService {
         }
     }
 
-    private static User me() throws SettlrException {
-        User u = Session.getInstance().getCurrentUser();
-        if (u == null) {
-            throw new ValidationException("Please log in again.");
-        }
-        return u;
-    }
-
-    private <T> T runInTransaction(TransactionBody<T> body) throws SettlrException {
-        try (Connection c = DBConnection.getInstance().getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                T result = body.run(c);
-                c.commit();
-                return result;
-            } catch (SettlrException | RuntimeException e) {
-                c.rollback();
-                throw e;
-            }
-        } catch (SQLException e) {
-            throw new DataAccessException("Could not save your purchase. Please try again.", e);
-        }
-    }
 }

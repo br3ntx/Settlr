@@ -1,18 +1,18 @@
 package com.settlr.ui.screens;
 
-import com.settlr.dao.MembershipDao;
-import com.settlr.dao.UserDao;
 import com.settlr.exception.SettlrException;
 import com.settlr.model.Expense;
 import com.settlr.model.ExpenseCategory;
 import com.settlr.model.ExpenseShare;
 import com.settlr.model.Household;
 import com.settlr.model.User;
-import com.settlr.service.BalanceService;
+import com.settlr.service.HouseholdService;
+import com.settlr.service.PaymentInbox;
+import com.settlr.service.PendingPayment;
 import com.settlr.service.ExpenseService;
-import com.settlr.service.PaymentService;
 import com.settlr.service.SettlementService;
 import com.settlr.ui.BaseScreen;
+import com.settlr.ui.components.AttentionCard;
 import com.settlr.ui.components.AvatarLabel;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
@@ -29,7 +29,6 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.geom.RoundRectangle2D;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -42,6 +41,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import static com.settlr.ui.components.Ui.*;
+
 /**
  * Expenses page:
  *   1. Two cards on top: "You owe" (with Settle up for each person) and "You're owed".
@@ -50,8 +51,8 @@ import java.util.Set;
  *   3. Two lists: Unpaid (someone still owes on it) and Settled (everyone paid).
  *      Each unpaid expense shows who still owes, e.g. "Dani \u00B7 Unpaid".
  *
- * Settling up pays the net amount (SettlementService). Keith's BalanceService and
- * PaymentService still handle older single-share payments, so those can still be confirmed here.
+ * Settling up pays the net amount (SettlementService). Older single-share payments can still be
+ * confirmed here too: PaymentInbox gives both kinds as one list of PendingPayment (Adapter).
  */
 public class ExpensesScreen extends BaseScreen {
 
@@ -97,11 +98,9 @@ public class ExpensesScreen extends BaseScreen {
     private static final int MAX_CHIPS = 3;
 
     private final SettlementService settlementService = new SettlementService();
-    private final BalanceService balanceService = new BalanceService();
-    private final PaymentService paymentService = new PaymentService();
     private final ExpenseService expenseService = new ExpenseService();
-    private final MembershipDao membershipDao = new MembershipDao();
-    private final UserDao userDao = new UserDao();
+    private final HouseholdService householdService = new HouseholdService();
+    private final PaymentInbox paymentInbox = new PaymentInbox();
 
     private Map<Integer, List<ExpenseShare>> sharesByExpense = new HashMap<>();
     private Set<Integer> pendingShareIds = java.util.Collections.emptySet();
@@ -110,10 +109,9 @@ public class ExpensesScreen extends BaseScreen {
     private final Set<Integer> expandedExpenses = new HashSet<>();
 
     private final JLabel crumb = label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
-    private final JLabel messageLabel = new JLabel(" ");
     private final GlassCard oweCard = new GlassCard(null);
     private final GlassCard owedCard = new GlassCard(null);
-    private final JPanel attentionCard = new AttentionCard();
+    private final JPanel attentionCard = new AttentionCard(14);
     private final JPanel unpaidRows = vertical();
     private final StyledComboBox<Sort> unpaidSort = new StyledComboBox<>(Arrays.asList(Sort.values()), s -> s.label);
     private final StyledComboBox<TypeChoice> unpaidType =
@@ -383,14 +381,9 @@ public class ExpensesScreen extends BaseScreen {
         attentionCard.removeAll();
         int count = 0;
         try {
-            List<SettlementService.Incoming> settleUps = settlementService.getWaitingForMe();
-            List<BalanceService.PaymentRow> singles = balanceService.getIncomingPaymentRows();
-            int total = settleUps.size() + singles.size();
-            for (SettlementService.Incoming in : settleUps) {
-                attentionCard.add(left(new SettleUpRow(in, ++count < total)));
-            }
-            for (BalanceService.PaymentRow row : singles) {
-                attentionCard.add(left(new SinglePaymentRow(row, ++count < total)));
+            List<PendingPayment> waiting = paymentInbox.getWaitingForMe();
+            for (PendingPayment p : waiting) {
+                attentionCard.add(left(new PendingPaymentRow(p, ++count < waiting.size())));
             }
         } catch (SettlrException e) {
             showMessage(e.getMessage(), true);
@@ -481,7 +474,7 @@ public class ExpensesScreen extends BaseScreen {
         names.clear();
         Household household = Session.getInstance().getCurrentHousehold();
         if (household != null) {
-            for (User u : membershipDao.findActiveMembers(household.getId())) {
+            for (User u : householdService.getMembers()) {
                 names.put(u.getId(), u.getDisplayName());
             }
         }
@@ -496,7 +489,7 @@ public class ExpensesScreen extends BaseScreen {
     /** Looks up people who left the household, so their name still shows. */
     private void remember(int userId) throws SettlrException {
         if (!names.containsKey(userId)) {
-            User u = userDao.findById(userId);
+            User u = householdService.findUser(userId);
             names.put(userId, u == null ? "Someone" : u.getDisplayName());
         }
     }
@@ -564,39 +557,9 @@ public class ExpensesScreen extends BaseScreen {
         showMessage(error != null ? error : successMessage, error != null);
     }
 
-    private void showMessage(String text, boolean isError) {
-        messageLabel.setForeground(isError ? Theme.DANGER : Theme.MINT);
-        messageLabel.setText(text);
-    }
-
     // =====================================================================
     //  Small helpers
     // =====================================================================
-
-    private static JPanel vertical() {
-        JPanel p = new JPanel();
-        p.setOpaque(false);
-        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        return p;
-    }
-
-    private static <T extends JComponent> T left(T c) {
-        c.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return c;
-    }
-
-    /** Stops BoxLayout from stretching c taller than it needs. */
-    private static <T extends JComponent> T fitHeight(T c) {
-        c.setMaximumSize(new Dimension(Integer.MAX_VALUE, c.getPreferredSize().height));
-        return c;
-    }
-
-    private static JLabel label(String text, int style, int size, Color color) {
-        JLabel l = new JLabel(text);
-        l.setFont(Theme.font(style, size));
-        l.setForeground(color);
-        return l;
-    }
 
     private static JLabel muted(String text) {
         JLabel l = label(text, Font.PLAIN, 13, Theme.MUTED_TEXT);
@@ -894,74 +857,17 @@ public class ExpensesScreen extends BaseScreen {
         }
     }
 
-    /** "Ben says he paid you P1,048.20 / GCash ref 1234 \u00B7 just now   Not received [Confirm]". */
-    private class SettleUpRow extends ActionRow {
-        SettleUpRow(SettlementService.Incoming in, boolean divider) {
+    /**
+     * "Ben says they paid you P1,048.20 / GCash ref 1234 \u00B7 just now   Not received [Confirm]".
+     * One row type for both kinds of payment: PendingPayment hides which kind it is (Adapter).
+     */
+    private class PendingPaymentRow extends ActionRow {
+        PendingPaymentRow(PendingPayment p, boolean divider) {
             super(divider);
-            String from = in.getFromName();
-            BigDecimal amount = in.getSettlement().getAmount();
-            String note = in.getSettlement().getNote();
-            String headline = amount.signum() == 0
-                    ? from + " says you're even"
-                    : from + " says they paid you " + MoneyUtil.format(amount);
-            String sub = (note == null || note.isBlank() ? "" : note + DOT)
-                    + DateTimeUtil.timeAgo(in.getSettlement().getCreatedAt());
-            int id = in.getSettlement().getId();
-            build(from, headline, sub,
-                    () -> confirmThen((amount.signum() == 0 ? "Confirm that you and " + from + " are even?"
-                                    : "Did " + from + " pay you " + MoneyUtil.format(amount) + "?")
-                                    + "\nThis settles everything between you two.",
-                            "Confirm payment", () -> settlementService.confirm(id),
-                            "Confirmed. You and " + from + " are settled up."),
-                    () -> confirmThen("Mark it as not received?\nNothing will be settled, and " + from
-                                    + " can send it again.", "Not received", () -> settlementService.reject(id),
-                            "Marked as not received. Nothing was settled."));
-        }
-    }
-
-    /** An older single-share payment waiting for confirmation (made before settle ups existed). */
-    private class SinglePaymentRow extends ActionRow {
-        SinglePaymentRow(BalanceService.PaymentRow row, boolean divider) {
-            super(divider);
-            String from = row.getFromUserName();
-            String amount = MoneyUtil.format(row.getAmount());
-            build(from, from + " says they paid you " + amount,
-                    "for " + row.getExpenseTitle() + DOT + DateTimeUtil.timeAgo(row.getPaidAt()),
-                    () -> confirmThen("Did " + from + " pay you " + amount + " for "
-                                    + row.getExpenseTitle() + "?", "Confirm payment",
-                            () -> paymentService.confirm(row.getPaymentId()),
-                            "Confirmed. " + from + "'s payment is now settled."),
-                    () -> confirmThen("Mark " + from + "'s payment of " + amount
-                                    + " as not received?\nThe share will stay unpaid.", "Not received",
-                            () -> paymentService.reject(row.getPaymentId()),
-                            "Marked as not received. The share is still unpaid."));
-        }
-    }
-
-    /** The amber-tinted bar for payments waiting for you. */
-    private static class AttentionCard extends JPanel {
-        AttentionCard() {
-            setOpaque(false);
-            setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            setBorder(new EmptyBorder(2, 18, 2, 18));
-        }
-
-        @Override
-        public Insets getInsets() {
-            Insets in = super.getInsets();
-            return new Insets(in.top + 14, in.left, in.bottom, in.right); // gap above the bar
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Shape card = new RoundRectangle2D.Float(0.5f, 14.5f, getWidth() - 1f, getHeight() - 15f, 22, 22);
-            g2.setColor(Theme.BANNER);
-            g2.fill(card);
-            g2.setColor(new Color(201, 164, 110, 120));
-            g2.draw(card);
-            g2.dispose();
+            build(p.getFromName(), p.getHeadline(), p.getDetails() + DOT + DateTimeUtil.timeAgo(p.getSentAt()),
+                    () -> confirmThen(p.getConfirmQuestion() + "\n" + p.getConfirmExplanation(), "Confirm payment",
+                            p::confirm, p.getConfirmedMessage()),
+                    () -> confirmThen(p.getRejectQuestion(), "Not received", p::reject, p.getRejectedMessage()));
         }
     }
 }

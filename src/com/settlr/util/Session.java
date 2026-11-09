@@ -1,5 +1,7 @@
 package com.settlr.util;
 
+import com.settlr.exception.AuthException;
+import com.settlr.exception.PermissionDeniedException;
 import com.settlr.model.Household;
 import com.settlr.model.Role;
 import com.settlr.model.User;
@@ -11,6 +13,9 @@ import com.settlr.model.User;
  * screen and service sees the same logged-in user without passing it around.
  * The fields are private (encapsulation); other classes can read them but can
  * only change them through start(), setHousehold() and end().
+ *
+ * The require...() methods are the "are you logged in / in a household / the Admin?" checks
+ * every service starts with, so the rule and the message are the same everywhere.
  */
 public final class Session {
 
@@ -71,4 +76,36 @@ public final class Session {
     public boolean hasHousehold() { return currentHousehold != null; }
 
     public boolean isAdmin() { return role == Role.ADMIN; }
+
+    // ---- checks for the services ----------------------------------------
+
+    /** The logged-in user. Fails with "Please log in first." when nobody is. */
+    public User requireUser() throws AuthException {
+        if (currentUser == null) {
+            throw new AuthException("Please log in first.");
+        }
+        return currentUser;
+    }
+
+    /** The current household. Fails when nobody is logged in, or they haven't joined one yet. */
+    public Household requireHousehold() throws AuthException, PermissionDeniedException {
+        requireUser();
+        if (currentHousehold == null) {
+            throw new PermissionDeniedException("Please create or join a household first.");
+        }
+        return currentHousehold;
+    }
+
+    /** The current household's id (same checks as requireHousehold()). */
+    public int requireHouseholdId() throws AuthException, PermissionDeniedException {
+        return requireHousehold().getId();
+    }
+
+    /** Fails unless the logged-in user is the Admin of their household. */
+    public void requireAdmin() throws AuthException, PermissionDeniedException {
+        requireHousehold();
+        if (role != Role.ADMIN) {
+            throw new PermissionDeniedException("Only the household Admin can do that.");
+        }
+    }
 }

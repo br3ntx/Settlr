@@ -1,11 +1,10 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ExpenseDao;
 import com.settlr.dao.ExpenseShareDao;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.PaymentDao;
-import com.settlr.exception.AuthException;
-import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
 import com.settlr.exception.ValidationException;
 import com.settlr.model.Balance;
@@ -32,6 +31,8 @@ import java.util.Map;
  * Read-only: it never changes data, and it contains no SQL (the DAOs do that).
  */
 public class BalanceService {
+
+    private final Session session = Session.getInstance();
 
     /** One unsettled share, ready to show in PaymentDialog. Read-only so the UI cannot change it. */
     public static final class ShareRow {
@@ -83,10 +84,10 @@ public class BalanceService {
         public LocalDateTime getPaidAt() { return paidAt; }
     }
 
-    private final ExpenseShareDao shareDao = new ExpenseShareDao();
-    private final ExpenseDao expenseDao = new ExpenseDao();
-    private final PaymentDao paymentDao = new PaymentDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final ExpenseShareDao shareDao = DaoFactory.get().shares();
+    private final ExpenseDao expenseDao = DaoFactory.get().expenses();
+    private final PaymentDao paymentDao = DaoFactory.get().payments();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
 
     // ---- public API (master doc 8.4) -----------------------------------
 
@@ -95,8 +96,8 @@ public class BalanceService {
      * screen can show "all settled"). Positive = they owe me, negative = I owe them.
      */
     public List<Balance> getMyBalances() throws SettlrException {
-        int me = currentUser().getId();
-        int householdId = currentHouseholdId();
+        int me = session.requireUser().getId();
+        int householdId = session.requireHouseholdId();
         Map<Integer, Expense> expenseCache = new HashMap<>();
 
         List<Balance> balances = new ArrayList<>();
@@ -143,12 +144,12 @@ public class BalanceService {
      * This is what Settle Up lists. getMyBalances() subtracts what they owe back.
      */
     public BigDecimal getIOweThemBeforeNetting(int otherUserId) throws SettlrException {
-        return sumUnsettled(currentUser().getId(), otherUserId, currentHouseholdId(), new HashMap<>());
+        return sumUnsettled(session.requireUser().getId(), otherUserId, session.requireHouseholdId(), new HashMap<>());
     }
 
     /** Before netting: the unsettled shares this person owes the current user, added up. */
     public BigDecimal getTheyOweMeBeforeNetting(int otherUserId) throws SettlrException {
-        return sumUnsettled(otherUserId, currentUser().getId(), currentHouseholdId(), new HashMap<>());
+        return sumUnsettled(otherUserId, session.requireUser().getId(), session.requireHouseholdId(), new HashMap<>());
     }
 
     /**
@@ -156,8 +157,8 @@ public class BalanceService {
      * Used by PaymentDialog. Shares with a pending payment are included but flagged.
      */
     public List<ShareRow> getUnsettledSharesOwedTo(int creditorId) throws SettlrException {
-        int me = currentUser().getId();
-        int householdId = currentHouseholdId();
+        int me = session.requireUser().getId();
+        int householdId = session.requireHouseholdId();
         if (creditorId == me) {
             throw new ValidationException("You cannot pay yourself.");
         }
@@ -184,8 +185,8 @@ public class BalanceService {
 
     /** The PENDING payments the current user still has to confirm or reject, oldest first. */
     public List<PaymentRow> getIncomingPaymentRows() throws SettlrException {
-        int me = currentUser().getId();
-        int householdId = currentHouseholdId();
+        int me = session.requireUser().getId();
+        int householdId = session.requireHouseholdId();
         Map<Integer, String> names = memberNames(householdId);
         Map<Integer, Expense> expenseCache = new HashMap<>();
 
@@ -254,19 +255,4 @@ public class BalanceService {
         return names;
     }
 
-    private User currentUser() throws SettlrException {
-        Session session = Session.getInstance();
-        if (!session.isLoggedIn()) {
-            throw new AuthException("Please log in first.");
-        }
-        return session.getCurrentUser();
-    }
-
-    private int currentHouseholdId() throws SettlrException {
-        currentUser();
-        if (Session.getInstance().getCurrentHousehold() == null) {
-            throw new PermissionDeniedException("Please create or join a household first.");
-        }
-        return Session.getInstance().getCurrentHousehold().getId();
-    }
 }

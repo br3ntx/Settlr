@@ -1,19 +1,16 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ShopDao;
-import com.settlr.exception.DataAccessException;
 import com.settlr.exception.SettlrException;
 import com.settlr.exception.ValidationException;
 import com.settlr.model.Cosmetic;
 import com.settlr.model.OwnedPet;
 import com.settlr.model.TaskAssignment;
-import com.settlr.model.User;
-import com.settlr.util.DBConnection;
 import com.settlr.util.DateTimeUtil;
 import com.settlr.util.Session;
+import com.settlr.util.Transaction;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -24,6 +21,8 @@ import java.util.Set;
  * and its mood. Items and pets are bought in the Shop (ShopService); this only arranges them.
  */
 public class PetService {
+
+    private final Session session = Session.getInstance();
 
     /** How the pet feels, worked out from the user's tasks and money. */
     public static final class Mood {
@@ -41,13 +40,13 @@ public class PetService {
         public String getReason() { return reason; }
     }
 
-    private final ShopDao shopDao = new ShopDao();
+    private final ShopDao shopDao = DaoFactory.get().shop();
     private final TaskService taskService = new TaskService();
     private final SettlementService settlementService = new SettlementService();
 
     /** Your pets with their names and outfits, oldest first. */
     public List<OwnedPet> getMyPets() throws SettlrException {
-        return shopDao.findPets(me().getId());
+        return shopDao.findPets(session.requireUser().getId());
     }
 
     /** The code of the pet to show: the one you picked, or your first pet. Null if you have none. */
@@ -55,7 +54,7 @@ public class PetService {
         if (pets.isEmpty()) {
             return null;
         }
-        String active = shopDao.findActivePet(me().getId());
+        String active = shopDao.findActivePet(session.requireUser().getId());
         for (OwnedPet p : pets) {
             if (p.getPet().getCode().equals(active)) {
                 return active;
@@ -69,7 +68,7 @@ public class PetService {
      * Only pets and items you own are accepted, each item in its own slot.
      */
     public void save(String shownPetCode, Collection<OwnedPet> pets) throws SettlrException {
-        int userId = me().getId();
+        int userId = session.requireUser().getId();
         Set<String> owned = shopDao.findOwnedCodes(userId);
         if (shownPetCode != null && !owned.contains(shownPetCode)) {
             throw new ValidationException("You don't have that pet.");
@@ -88,21 +87,12 @@ public class PetService {
                 }
             }
         }
-        try (Connection c = DBConnection.getInstance().getConnection()) {
-            c.setAutoCommit(false);
-            try {
-                for (OwnedPet p : pets) {
-                    shopDao.updatePet(c, userId, p);
-                }
-                shopDao.updateActivePet(c, userId, shownPetCode);
-                c.commit();
-            } catch (SettlrException | RuntimeException e) {
-                c.rollback();
-                throw e;
+        Transaction.run("Could not save your pet. Please try again.", c -> {
+            for (OwnedPet p : pets) {
+                shopDao.updatePet(c, userId, p);
             }
-        } catch (SQLException e) {
-            throw new DataAccessException("Could not save your pet. Please try again.", e);
-        }
+            shopDao.updateActivePet(c, userId, shownPetCode);
+        });
     }
 
     /**
@@ -110,7 +100,7 @@ public class PetService {
      * happy otherwise.
      */
     public Mood getMood() throws SettlrException {
-        int myId = me().getId();
+        int myId = session.requireUser().getId();
         int overdue = 0;
         for (TaskAssignment a : taskService.getOverdue()) {
             if (a.getAssigneeId() == myId) {
@@ -136,14 +126,7 @@ public class PetService {
 
     /** XP earned since Monday (tasks done and payments confirmed this week). */
     public int getXpThisWeek() throws SettlrException {
-        return shopDao.findEarnedSince(me().getId(), DateTimeUtil.weekStart(LocalDate.now()));
+        return shopDao.findEarnedSince(session.requireUser().getId(), DateTimeUtil.weekStart(LocalDate.now()));
     }
 
-    private static User me() throws SettlrException {
-        User u = Session.getInstance().getCurrentUser();
-        if (u == null) {
-            throw new ValidationException("Please log in again.");
-        }
-        return u;
-    }
 }

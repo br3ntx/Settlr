@@ -1,5 +1,6 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.HouseholdDao;
 import com.settlr.dao.MembershipDao;
 import com.settlr.dao.UserDao;
@@ -31,6 +32,8 @@ import java.nio.file.Paths;
  */
 public class ProfileService {
 
+    private final Session session = Session.getInstance();
+
     /** Where profile pictures are saved, relative to the project folder (git ignores uploads/). */
     public static final String AVATAR_FOLDER = "uploads/avatars";
     private static final long MAX_PHOTO_BYTES = 5L * 1024 * 1024;
@@ -53,9 +56,9 @@ public class ProfileService {
         public int getMemberCount() { return memberCount; }
     }
 
-    private final UserDao userDao = new UserDao();
-    private final HouseholdDao householdDao = new HouseholdDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final UserDao userDao = DaoFactory.get().users();
+    private final HouseholdDao householdDao = DaoFactory.get().households();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
 
     // =====================================================================
     //  Reading
@@ -63,12 +66,12 @@ public class ProfileService {
 
     /** The logged-in user, freshly loaded from the database. */
     public User getMe() throws SettlrException {
-        User fresh = userDao.findById(currentUser().getId());
+        User fresh = userDao.findById(session.requireUser().getId());
         if (fresh == null) {
             throw new AuthException("Your account could not be found. Please log in again.");
         }
-        currentUser().copyFrom(fresh);
-        return currentUser();
+        session.requireUser().copyFrom(fresh);
+        return session.requireUser();
     }
 
     /** Your household, your role and how many people are in it, or null if you're not in one yet. */
@@ -211,7 +214,7 @@ public class ProfileService {
 
     /** A fresh copy of the logged-in user to change; the Session is only updated after a save works. */
     private User editableCopy() throws SettlrException {
-        User fresh = userDao.findById(currentUser().getId());
+        User fresh = userDao.findById(session.requireUser().getId());
         if (fresh == null) {
             throw new AuthException("Your account could not be found. Please log in again.");
         }
@@ -220,7 +223,7 @@ public class ProfileService {
 
     private void save(User u) throws SettlrException {
         userDao.update(u);
-        currentUser().copyFrom(u);
+        session.requireUser().copyFrom(u);
     }
 
     private static void checkPassword(User u, String password) throws ValidationException {
@@ -230,14 +233,6 @@ public class ProfileService {
         if (!PasswordHasher.matches(password, u.getPasswordHash())) {
             throw new ValidationException("Your current password is incorrect.");
         }
-    }
-
-    private static User currentUser() throws AuthException {
-        User u = Session.getInstance().getCurrentUser();
-        if (u == null) {
-            throw new AuthException("Please log in first.");
-        }
-        return u;
     }
 
     /** The middle square of the picture, scaled to PHOTO_SIZE. */

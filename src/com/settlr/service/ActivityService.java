@@ -1,5 +1,6 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ActivityLogDao;
 import com.settlr.dao.MembershipDao;
 import com.settlr.exception.AuthException;
@@ -23,8 +24,8 @@ import java.util.List;
  */
 public class ActivityService {
 
-    private final ActivityLogDao activityLogDao = new ActivityLogDao();
-    private final MembershipDao membershipDao = new MembershipDao();
+    private final ActivityLogDao activityLogDao = DaoFactory.get().activityLog();
+    private final MembershipDao membershipDao = DaoFactory.get().memberships();
 
     /**
      * Records one event for the household the user is currently an active member of.

@@ -25,7 +25,6 @@ public abstract class AuthScreen extends BaseScreen {
     protected static final int FIELD_HEIGHT = 36;
 
     /** One line for errors (red) and notices (beige), between the fields and the button. */
-    protected final JLabel messageLabel = new JLabel(" "); // a space keeps its height when empty
 
     private final JPanel content = new JPanel();
 

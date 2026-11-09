@@ -9,6 +9,19 @@ import java.time.LocalDateTime;
  * Money one member paid for the group (for example a P900 grocery run).
  * It stores the whole bill; each person's portion is an ExpenseShare.
  * Mirrors the expenses table. Saving it is the DAO's job, not this class's.
+ *
+ * Build one with Expense.builder() (Builder pattern) instead of the 10-argument constructor,
+ * so each value is named and two numbers can't be swapped by accident:
+ *
+ *     Expense pizza = Expense.builder()
+ *             .household(household.getId())
+ *             .title("Pizza party")
+ *             .category(ExpenseCategory.FOOD)
+ *             .amount(new BigDecimal("900.00"))
+ *             .paidBy(ana.getId())
+ *             .dueDate(LocalDate.now().plusDays(7))
+ *             .createdBy(ana.getId())
+ *             .build();
  */
 public class Expense {
 
@@ -41,6 +54,58 @@ public class Expense {
         setDueDate(dueDate);
         setCreatedBy(createdBy);
         setCreatedAt(createdAt);
+    }
+
+    /** Starts building a new expense (see the example at the top of this class). */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Collects an expense's values one at a time, then build() checks them all at once.
+     * Left out: id (0 = not saved yet), billId (null = typed in by hand), createdAt (now).
+     */
+    public static final class Builder {
+        private int id;
+        private int householdId;
+        private Integer billId;
+        private String title;
+        private ExpenseCategory category;
+        private BigDecimal amount;
+        private int paidBy;
+        private LocalDate dueDate;
+        private int createdBy;
+        private LocalDateTime createdAt = LocalDateTime.now();
+
+        private Builder() { }
+
+        /** Only for expenses that are already saved, e.g. one read back from the database. */
+        public Builder id(int id) { this.id = id; return this; }
+
+        public Builder household(int householdId) { this.householdId = householdId; return this; }
+
+        /** The recurring bill this expense was made from. */
+        public Builder fromBill(Integer billId) { this.billId = billId; return this; }
+
+        public Builder title(String title) { this.title = title; return this; }
+
+        public Builder category(ExpenseCategory category) { this.category = category; return this; }
+
+        public Builder amount(BigDecimal amount) { this.amount = amount; return this; }
+
+        public Builder paidBy(int userId) { this.paidBy = userId; return this; }
+
+        public Builder dueDate(LocalDate dueDate) { this.dueDate = dueDate; return this; }
+
+        public Builder createdBy(int userId) { this.createdBy = userId; return this; }
+
+        public Builder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
+
+        /** The finished expense. Throws IllegalArgumentException if a value is missing or wrong. */
+        public Expense build() {
+            return new Expense(id, householdId, billId, title, category, amount, paidBy, dueDate,
+                    createdBy, createdAt);
+        }
     }
 
     public int getId() { return id; }
