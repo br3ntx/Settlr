@@ -8,7 +8,7 @@ public final class PetDrawings {
 
     private PetDrawings() { }
 
-    /** The pet with its hat, glasses and neck item on; the egg if pet is null. */
+    /** The pet with its glasses and head item on; the egg if pet is null. */
     public static PetDrawing of(OwnedPet pet) {
         if (pet == null) {
             return new PlainPet(null);
@@ -16,10 +16,6 @@ public final class PetDrawings {
         PetDrawing drawing = new PlainPet(pet.getPet());
         Cosmetic hat = pet.getItem(Cosmetic.Slot.HAT);
         Cosmetic glasses = pet.getItem(Cosmetic.Slot.GLASSES);
-        Cosmetic neck = pet.getItem(Cosmetic.Slot.NECK);
-        if (neck != null) {
-            drawing = new NeckDecorator(drawing, neck);
-        }
         if (glasses != null) {
             drawing = new GlassesDecorator(drawing, glasses);
         }

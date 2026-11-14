@@ -35,13 +35,14 @@ public final class PetArt {
 
     private PetArt() { }
 
-    /** Loads every picture on a background thread, so screens don't wait for them later. */
+    /** Loads every pet and item picture on a background thread, so screens don't wait for them later. */
     public static void preloadInBackground() {
         Thread t = new Thread(() -> {
             egg();
             for (Pet p : com.settlr.model.ShopCatalog.pets()) {
                 of(p);
             }
+            CosmeticArt.preload();
         }, "pet-art");
         t.setDaemon(true);
         t.start();

@@ -134,9 +134,8 @@ public final class ShopDialog extends ModalPopup {
         }
         bubble(bubble, 186, 150);
         if (result.isDuplicate()) {
-            title("You already have " + article(pet.getName()) + " " + pet.getName());
-            line("+" + ShopScreen.xp(ShopCatalog.DUPLICATE_REFUND) + " back, so this egg cost "
-                    + ShopScreen.xp(ShopCatalog.EGG_PRICE - ShopCatalog.DUPLICATE_REFUND) + ".", Theme.MINT);
+            title(pet.getName() + " (Owned)");
+            line("+" + ShopScreen.xp(ShopCatalog.DUPLICATE_REFUND), Theme.MINT);
         } else {
             title("You got " + article(pet.getName()) + " " + pet.getName() + "!");
             line("It can wear any hat or accessory you own.", Theme.MUTED_TEXT);

@@ -20,7 +20,7 @@ import java.awt.image.BufferedImage;
  */
 class PickTile extends JPanel {
 
-    /** What goes in the middle of the bubble until there are pictures. */
+    /** What the tile holds: an item, a pet, or "None" (a crossed-out circle). Without a picture, a dashed outline. */
     enum Look { ITEM, PET, NONE }
 
     private final Bubble bubble;
@@ -29,7 +29,7 @@ class PickTile extends JPanel {
         this(name, look, null, tag, tagColor, bubbleHeight, onPick);
     }
 
-    /** With a picture (a pet's) in the bubble instead of the dashed placeholder. */
+    /** With a picture (a pet's or an item's) in the bubble instead of the dashed placeholder. */
     PickTile(String name, Look look, BufferedImage picture, String tag, Color tagColor, int bubbleHeight,
              Runnable onPick) {
         super(new BorderLayout(0, 6));
@@ -87,7 +87,9 @@ class PickTile extends JPanel {
             float cx = pad + w / 2, cy = pad + h / 2 + (tag == null ? 0 : 6);
             float s = Math.min(w, h) * 0.42f;
             Color faint = new Color(232, 217, 205, 80);
-            if (picture != null) {
+            if (picture != null && look == Look.ITEM) { // an item: smaller, so it doesn't touch the edges
+                PetArt.draw(g2, picture, pad + w * 0.2f, pad + h * 0.22f, w * 0.6f, h * 0.56f);
+            } else if (picture != null) {
                 float top = pad + (tag == null ? 8 : 28);
                 PetArt.draw(g2, picture, pad + w * 0.14f, top, w * 0.72f, pad + h - 8 - top);
             } else if (look == Look.NONE) {

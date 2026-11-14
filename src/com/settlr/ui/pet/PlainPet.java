@@ -22,6 +22,11 @@ public class PlainPet implements PetDrawing {
     }
 
     @Override
+    public PetFit fit() {
+        return PetFit.of(pet, pet != null && PetArt.of(pet) != null);
+    }
+
+    @Override
     public void draw(Graphics2D g2, float cx, float cy, float size) {
         BufferedImage picture = pet == null ? PetArt.egg() : PetArt.of(pet);
         if (picture != null) {

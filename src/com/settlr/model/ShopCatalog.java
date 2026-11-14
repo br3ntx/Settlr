@@ -15,15 +15,13 @@ public final class ShopCatalog {
     /** XP given back when the egg gives a pet you already have (half the egg). */
     public static final int DUPLICATE_REFUND = EGG_PRICE / 2;
 
+    /** Each one has a picture in resources/images named after it (see CosmeticArt). */
     private static final List<Cosmetic> COSMETICS = List.of(
             new Cosmetic("HAT_PARTY", "Party hat", Cosmetic.Slot.HAT, 60),
-            new Cosmetic("HAT_BEANIE", "Beanie", Cosmetic.Slot.HAT, 80),
-            new Cosmetic("HAT_SALAKOT", "Salakot", Cosmetic.Slot.HAT, 120),
-            new Cosmetic("HAT_CROWN", "Crown", Cosmetic.Slot.HAT, 300),
-            new Cosmetic("GLASSES_SUN", "Sunglasses", Cosmetic.Slot.GLASSES, 80),
-            new Cosmetic("NECK_BOWTIE", "Bow tie", Cosmetic.Slot.NECK, 60),
-            new Cosmetic("NECK_SCARF", "Scarf", Cosmetic.Slot.NECK, 100),
-            new Cosmetic("HAT_HALO", "Angel halo", Cosmetic.Slot.HAT, 200));
+            new Cosmetic("HAT_BOW", "Bow", Cosmetic.Slot.HAT, 80),
+            new Cosmetic("GLASSES_ROUND", "Glasses", Cosmetic.Slot.GLASSES, 100),
+            new Cosmetic("HAT_FEDORA", "Fedora", Cosmetic.Slot.HAT, 150),
+            new Cosmetic("HAT_CROWN", "Crown", Cosmetic.Slot.HAT, 300));
 
     private static final List<Pet> PETS = List.of(
             new Pet("PET_CAT", "Cat", Pet.Rarity.COMMON),

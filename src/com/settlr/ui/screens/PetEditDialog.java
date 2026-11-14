@@ -8,6 +8,7 @@ import com.settlr.model.ShopCatalog;
 import com.settlr.service.PetService;
 import com.settlr.ui.ModalPopup;
 import com.settlr.ui.Navigator;
+import com.settlr.ui.components.CosmeticArt;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.SegmentedControl;
@@ -28,7 +29,7 @@ import java.util.Set;
 
 /**
  * "Edit pet" (from Home): the pet in the middle, its name (Rename), "Change pet" to show a
- * different pet, and Hat / Glasses / Neck tabs to pick what it wears from the items you own.
+ * different pet, and Head / Glasses tabs to pick what it wears from the items you own.
  * The preview changes as you click; nothing is saved until Save.
  *
  *     PetEditDialog.open(this, pets, shownCode, ownedCodes, () -> reload());
@@ -100,7 +101,7 @@ public final class PetEditDialog extends ModalPopup {
         row(changeHolder, 8, 28);
         changeHolder.setVisible(pets.size() > 1); // nothing to change to with one pet
 
-        SegmentedControl tabs = new SegmentedControl(new String[] {"Hat", "Glasses", "Neck"}, i -> {
+        SegmentedControl tabs = new SegmentedControl(new String[] {"Head", "Glasses"}, i -> {
             slot = Cosmetic.Slot.values()[i];
             fillTiles();
         });
@@ -219,7 +220,7 @@ public final class PetEditDialog extends ModalPopup {
             if (item.getSlot() != slot || !owned.contains(item.getCode())) {
                 continue;
             }
-            PickTile t = new PickTile(item.getName(), PickTile.Look.ITEM, null, null, 74, () -> {
+            PickTile t = new PickTile(item.getName(), PickTile.Look.ITEM, CosmeticArt.of(item), null, null, 74, () -> {
                 p.wear(item);
                 afterPick();
             });
@@ -238,8 +239,7 @@ public final class PetEditDialog extends ModalPopup {
         tiles.setMinimumSize(d);
         tiles.setMaximumSize(d);
         emptyLabel.setText(all.size() == 1
-                ? "You don't have any " + (slot == Cosmetic.Slot.HAT ? "hats" : slot == Cosmetic.Slot.GLASSES
-                        ? "glasses" : "neck items") + " yet."
+                ? "You don't have any " + (slot == Cosmetic.Slot.HAT ? "hats or bows" : "glasses") + " yet."
                 : " ");
         card.revalidate();
         card.repaint();

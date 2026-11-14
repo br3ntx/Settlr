@@ -3,6 +3,7 @@ package com.settlr.ui.screens;
 import com.settlr.model.Cosmetic;
 import com.settlr.model.Pet;
 import com.settlr.model.ShopItem;
+import com.settlr.ui.components.CosmeticArt;
 import com.settlr.ui.components.PetArt;
 import com.settlr.ui.theme.Theme;
 
@@ -14,7 +15,7 @@ import java.awt.image.BufferedImage;
 /**
  * The rounded "bubble" a Shop item sits in, with a small tag in the top-left (HAT, RARE...)
  * and an optional one in the top-right (Owned, NEW). The item's picture goes in the middle
- * later (pets already have theirs, from PetArt). The pet egg uses it too, with a dashed "?" look.
+ * (PetArt for pets, CosmeticArt for hats and accessories). The pet egg uses it too, with a dashed "?" look.
  */
 class ItemBubble extends JComponent {
 
@@ -33,7 +34,8 @@ class ItemBubble extends JComponent {
     private Color outline;  // null = the normal thin edge
     private boolean glow;
     private boolean mystery; // the pet egg
-    private BufferedImage picture; // the pet's picture, if it has one
+    private BufferedImage picture; // the pet's or item's picture, if it has one
+    private boolean small;          // items are drawn smaller than pets, with more room around them
     private boolean hover;
 
     ItemBubble(int arc) {
@@ -48,8 +50,9 @@ class ItemBubble extends JComponent {
         if (item instanceof Pet) {
             b.tagColor = rarityColor(((Pet) item).getRarity());
             b.picture = PetArt.of((Pet) item);
-        } else if (!(item instanceof Cosmetic)) {
-            b.tagColor = TAG_TEXT;
+        } else if (item instanceof Cosmetic) {
+            b.picture = CosmeticArt.of((Cosmetic) item);
+            b.small = true;
         }
         return b;
     }
@@ -133,7 +136,9 @@ class ItemBubble extends JComponent {
         g2.setStroke(new BasicStroke(outline != null || hover ? 1.5f : 1f));
         g2.draw(box);
 
-        if (picture != null) { // below the tag, with a little room around it
+        if (picture != null && small) { // an item: smaller, in the middle below the tag
+            PetArt.draw(g2, picture, pad + w * 0.23f, pad + 42, w * 0.54f, h - 42 - 28);
+        } else if (picture != null) { // a pet: below the tag, with a little room around it
             PetArt.draw(g2, picture, pad + w * 0.12f, pad + 30, w * 0.76f, h - 30 - 10);
         }
 

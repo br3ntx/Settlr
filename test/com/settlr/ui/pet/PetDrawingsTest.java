@@ -7,7 +7,7 @@ import com.settlr.model.ShopCatalog;
 import org.junit.Test;
 
 import java.awt.Graphics2D;
-import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,23 +22,40 @@ public class PetDrawingsTest {
     public void eachDecoratorDrawsWhatItWrapsFirst() {
         List<String> order = new ArrayList<>();
         PetDrawing pet = (g2, cx, cy, size) -> order.add("pet");
-        PetDrawing dressed = new RecordingDecorator(new RecordingDecorator(pet, "scarf", order), "crown", order);
+        PetDrawing dressed = new RecordingDecorator(new RecordingDecorator(pet, "glasses", order), "crown", order);
 
         dressed.draw(canvas(), 50, 50, 100);
 
-        assertEquals(List.of("pet", "scarf", "crown"), order);
+        assertEquals(List.of("pet", "glasses", "crown"), order);
     }
 
     @Test
     public void hatIsTheOutermostLayer() {
         OwnedPet dog = new OwnedPet((Pet) ShopCatalog.find("PET_DOG"));
         dog.wear((Cosmetic) ShopCatalog.find("HAT_CROWN"));
-        dog.wear((Cosmetic) ShopCatalog.find("NECK_SCARF"));
+        dog.wear((Cosmetic) ShopCatalog.find("GLASSES_ROUND"));
 
         PetDrawing drawing = PetDrawings.of(dog);
 
         assertTrue(drawing instanceof HatDecorator);
         drawing.draw(canvas(), 100, 100, 160); // draws without errors
+    }
+
+    @Test
+    public void decoratorsUseThePetUnderneathToFindTheHead() {
+        OwnedPet cat = new OwnedPet((Pet) ShopCatalog.find("PET_CAT"));
+        PetFit plain = PetDrawings.of(cat).fit();
+        cat.wear((Cosmetic) ShopCatalog.find("HAT_FEDORA"));
+        cat.wear((Cosmetic) ShopCatalog.find("GLASSES_ROUND"));
+
+        assertEquals(plain.headTop, PetDrawings.of(cat).fit().headTop, 0.0001f);
+    }
+
+    @Test
+    public void everyShopItemIsAHeadItemOrGlasses() {
+        for (Cosmetic c : ShopCatalog.cosmetics()) {
+            assertTrue(c.getSlot() == Cosmetic.Slot.HAT || c.getSlot() == Cosmetic.Slot.GLASSES);
+        }
     }
 
     @Test
@@ -59,12 +76,12 @@ public class PetDrawingsTest {
         }
 
         @Override
-        protected Point2D.Float where(float cx, float cy, float d) {
-            return new Point2D.Float(cx, cy);
+        protected Rectangle2D.Float place(PetFit fit, float left, float top, float size) {
+            return new Rectangle2D.Float(left, top, size, size);
         }
 
         @Override
-        protected void drawItem(Graphics2D g2, float x, float y) {
+        protected void drawItem(Graphics2D g2, Rectangle2D.Float box) {
             order.add(name);
         }
     }

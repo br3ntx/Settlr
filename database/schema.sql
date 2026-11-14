@@ -187,9 +187,9 @@ CREATE TABLE owned_items (
     acquired_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- Only used on pet rows: the pet's name and what it wears (item codes), NULL = default / nothing
     pet_name     VARCHAR(20) NULL,
-    hat          VARCHAR(30) NULL,
+    hat          VARCHAR(30) NULL,      -- anything on the head: a hat or the bow
     glasses      VARCHAR(30) NULL,
-    neck         VARCHAR(30) NULL,
+    neck         VARCHAR(30) NULL,      -- no longer used: the Neck items were taken out of the Shop
     PRIMARY KEY (user_id, item_code),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );

@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * One of the user's pets, with the name they gave it and what it's wearing: at most one
- * cosmetic per slot (a hat, glasses, something on the neck). Each pet keeps its own outfit.
+ * cosmetic per slot (one thing on its head, one pair of glasses). Each pet keeps its own outfit.
  */
 public class OwnedPet implements Prototype<OwnedPet> {
 

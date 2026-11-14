@@ -90,7 +90,7 @@ public class MySqlShopDao extends AbstractDao<OwnedPet> implements ShopDao {
     @Override
     public List<OwnedPet> findPets(int userId) throws DataAccessException {
         List<OwnedPet> pets = new ArrayList<>();
-        for (OwnedPet p : queryList("SELECT item_code, pet_name, hat, glasses, neck FROM owned_items "
+        for (OwnedPet p : queryList("SELECT item_code, pet_name, hat, glasses FROM owned_items "
                         + "WHERE user_id = ? AND item_code LIKE 'PET\\_%' ORDER BY acquired_at, item_code",
                 "Could not load your pets.", userId)) {
             if (p != null) {
@@ -109,11 +109,11 @@ public class MySqlShopDao extends AbstractDao<OwnedPet> implements ShopDao {
 
     @Override
     public void updatePet(Connection c, int userId, OwnedPet pet) throws DataAccessException {
-        update(c, "UPDATE owned_items SET pet_name = ?, hat = ?, glasses = ?, neck = ? "
+        update(c, "UPDATE owned_items SET pet_name = ?, hat = ?, glasses = ? "
                         + "WHERE user_id = ? AND item_code = ?",
                 "Could not save your pet.",
                 pet.getName(), codeOf(pet.getItem(Cosmetic.Slot.HAT)), codeOf(pet.getItem(Cosmetic.Slot.GLASSES)),
-                codeOf(pet.getItem(Cosmetic.Slot.NECK)), userId, pet.getPet().getCode());
+                userId, pet.getPet().getCode());
     }
 
     @Override
@@ -130,7 +130,7 @@ public class MySqlShopDao extends AbstractDao<OwnedPet> implements ShopDao {
         }
         OwnedPet pet = new OwnedPet((Pet) item);
         pet.setName(rs.getString("pet_name"));
-        for (String column : new String[] {"hat", "glasses", "neck"}) {
+        for (String column : new String[] {"hat", "glasses"}) {
             ShopItem worn = ShopCatalog.find(rs.getString(column));
             if (worn instanceof Cosmetic) {
                 pet.wear((Cosmetic) worn);

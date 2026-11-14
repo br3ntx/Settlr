@@ -40,7 +40,7 @@ public class ShopScreen extends BaseScreen {
 
     static final String DOT = " \u00B7 ";
     private static final NumberFormat NUMBER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
-    private static final String[] FILTERS = {"All", "Hats", "Glasses", "Neck", "Owned"};
+    private static final String[] FILTERS = {"All", "Head", "Glasses", "Owned"};
 
     private final ShopService shopService = new ShopService();
 
@@ -137,13 +137,12 @@ public class ShopScreen extends BaseScreen {
             boolean show = f == 0
                     || (f == 1 && c.getSlot() == Cosmetic.Slot.HAT)
                     || (f == 2 && c.getSlot() == Cosmetic.Slot.GLASSES)
-                    || (f == 3 && c.getSlot() == Cosmetic.Slot.NECK)
-                    || (f == 4 && owned.contains(c.getCode()));
+                    || (f == 3 && owned.contains(c.getCode()));
             if (show) {
                 items.add(c);
             }
         }
-        if (f == 4) { // pets only show under Owned; the rest of the time they're a surprise
+        if (f == 3) { // pets only show under Owned; the rest of the time they're a surprise
             for (Pet p : ShopCatalog.pets()) {
                 if (owned.contains(p.getCode())) {
                     items.add(p);
