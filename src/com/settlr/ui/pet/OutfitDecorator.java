@@ -15,7 +15,7 @@ import java.awt.image.BufferedImage;
  * wraps first, then its own item's picture on top, so items stack in the order they were wrapped.
  *
  * One picture per item is enough: the same crown.png goes on the dog and the cat, with or
- * without glasses. Each slot has its own subclass that only works out WHERE the picture goes
+ * without glasses. (An item may have a separate "on pet" picture; see CosmeticArt.onPet.) Each slot has its own subclass that only works out WHERE the picture goes
  * (HatDecorator: on the head, GlassesDecorator: over the eyes), using the pet's PetFit.
  */
 public abstract class OutfitDecorator implements PetDrawing {
@@ -48,13 +48,13 @@ public abstract class OutfitDecorator implements PetDrawing {
 
     /** Height of the item's picture when it's this wide (it keeps its shape). */
     protected float heightFor(float width) {
-        BufferedImage img = CosmeticArt.of(item);
+        BufferedImage img = CosmeticArt.onPet(item);
         return img == null ? width * 0.4f : width * img.getHeight() / img.getWidth();
     }
 
     /** Draws the item's picture in the box; with no picture, its name in a small label. */
     protected void drawItem(Graphics2D g2, Rectangle2D.Float box) {
-        BufferedImage img = CosmeticArt.of(item);
+        BufferedImage img = CosmeticArt.onPet(item);
         if (img != null) {
             PetArt.draw(g2, img, box.x, box.y, box.width, box.height);
             return;

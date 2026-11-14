@@ -62,12 +62,15 @@ public class TaskFormDialog extends ModalPopup {
         try {
             Household household = Session.getInstance().getCurrentHousehold();
             if (household == null) {
-                JOptionPane.showMessageDialog(anyComponent, "Join a household first.");
+                new ConfirmDialog("Join a household first", "Tasks and expenses belong to a household. "
+                        + "Create one or join with an invite code from a roommate.").okOnly("OK").showOver(anyComponent);
                 return;
             }
             members = new HouseholdService().getMembers();
         } catch (SettlrException e) {
-            JOptionPane.showMessageDialog(anyComponent, "Can't load your household members: " + e.getMessage());
+            new ConfirmDialog("Can't open this right now", e instanceof DataAccessException
+                    ? "Can't load your household members. Is MySQL running?"
+                    : "Can't load your household members: " + e.getMessage()).okOnly("OK").showOver(anyComponent);
             return;
         }
         TaskFormDialog popup = new TaskFormDialog(members, onSaved);

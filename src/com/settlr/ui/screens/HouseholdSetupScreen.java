@@ -76,8 +76,7 @@ public class HouseholdSetupScreen extends BaseScreen {
         createError.setText(" ");
         try {
             Household household = householdService.create(name); // you become the Admin
-            showInviteCode(household);
-            Navigator.getInstance().show(Navigator.DASHBOARD);
+            InviteCodeDialog.open(this, household, () -> Navigator.getInstance().show(Navigator.DASHBOARD));
         } catch (DataAccessException e) {
             showError(createError, nameField, "Can't reach the database. Is MySQL running?");
             e.printStackTrace();
@@ -108,22 +107,7 @@ public class HouseholdSetupScreen extends BaseScreen {
         }
     }
 
-    /**
-     * The new Admin needs the code to invite roommates. The Household settings
-     * screen will show it later; until then this is the only place it appears.
-     * The code is in a read-only text field so it can be selected and copied.
-     */
-    private void showInviteCode(Household household) {
-        JTextField code = new JTextField(household.getInviteCode());
-        code.setEditable(false);
-        code.setFont(Theme.font(Font.BOLD, 22));
-        code.setHorizontalAlignment(JTextField.CENTER);
-        Object[] message = {
-                household.getName() + " is ready! Send this invite code to your roommates:",
-                code
-        };
-        JOptionPane.showMessageDialog(this, message, "Household created", JOptionPane.INFORMATION_MESSAGE);
-    }
+    // The new Admin's invite code is shown by InviteCodeDialog (Household shows it again later).
 
     /** Without the sidebar there is no other way out of this screen. */
     private JLabel logOutLink() {

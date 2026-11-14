@@ -19,6 +19,10 @@ import java.util.Map;
  * the empty border around the item is trimmed so its size and position are easy to work out.
  * Items without a picture return null, and the screens show their name instead.
  *
+ * An item can also have a second picture made for wearing, named "<file> on pet.png"
+ * (e.g. "glasses on pet.png": just the frames, without the arms the Shop picture shows).
+ * onPet(item) uses that one if it exists, and the Shop picture if not.
+ *
  *     BufferedImage img = CosmeticArt.of(crown);   // null if there's no picture yet
  *     PetArt.draw(g2, img, x, y, width, height);   // same drawing helper as the pets
  */
@@ -34,12 +38,27 @@ public final class CosmeticArt {
     static void preload() {
         for (Cosmetic c : ShopCatalog.cosmetics()) {
             of(c);
+            onPet(c);
         }
     }
 
-    /** The item's picture, or null if there isn't one. */
+    /** The item's picture for the Shop and the tiles, or null if there isn't one. */
     public static BufferedImage of(Cosmetic item) {
-        return item == null ? null : load(item.getName().toLowerCase().replace(' ', '-'));
+        return item == null ? null : load(fileName(item));
+    }
+
+    /** The picture to draw on the pet: "<file> on pet.png" if there is one, else the Shop picture. */
+    public static BufferedImage onPet(Cosmetic item) {
+        if (item == null) {
+            return null;
+        }
+        BufferedImage worn = load(fileName(item) + " on pet");
+        return worn != null ? worn : of(item);
+    }
+
+    /** "Party hat" -> "party-hat" */
+    private static String fileName(Cosmetic item) {
+        return item.getName().toLowerCase().replace(' ', '-');
     }
 
     private static synchronized BufferedImage load(String name) {

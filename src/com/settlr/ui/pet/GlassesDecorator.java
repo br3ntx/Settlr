@@ -7,9 +7,9 @@ import java.awt.geom.Rectangle2D;
 /** Puts glasses on the pet, with one lens over each eye. */
 public class GlassesDecorator extends OutfitDecorator {
 
-    /** In glasses.PNG the lens centers are 51% of the picture's width apart, 73% of the way down. */
-    private static final float LENS_GAP = 0.51f;
-    private static final float LENS_HEIGHT = 0.73f;
+    /** In "glasses on pet.png" the lens centers are 50% of the picture's width apart, halfway down. */
+    private static final float LENS_GAP = 0.50f;
+    private static final float LENS_HEIGHT = 0.50f;
     /** A little bigger than an exact fit, so the frames go around the eyes instead of across them. */
     private static final float ROOMY = 1.12f;
 

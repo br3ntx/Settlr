@@ -34,6 +34,8 @@ public class ConfirmDialog extends ModalPopup {
     private final JPanel header = new JPanel(new BorderLayout(12, 0));
     private final JPanel body = new JPanel();
     private final JPanel buttons = new JPanel(new GridBagLayout());
+    private Runnable onCancel;
+    private boolean confirmed;
 
     public ConfirmDialog(String title, String line) {
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -136,6 +138,7 @@ public class ConfirmDialog extends ModalPopup {
             ok.setColors(Theme.DANGER, Theme.DANGER.darker(), Color.WHITE);
         }
         ok.addActionListener(e -> {
+            confirmed = true;
             close();
             onConfirm.run();
         });
@@ -149,6 +152,26 @@ public class ConfirmDialog extends ModalPopup {
         c.insets = new Insets(0, 0, 0, 0);
         buttons.add(ok, c);
         return this;
+    }
+
+    /**
+     * Runs when the popup closes without the main button: Cancel, the X, or Esc.
+     * Used to bring back a popup that was hidden while this one asks.
+     */
+    public ConfirmDialog onCancel(Runnable onCancel) {
+        this.onCancel = onCancel;
+        return this;
+    }
+
+    @Override
+    public void close() {
+        boolean wasOpen = getParent() != null;
+        super.close();
+        if (wasOpen && !confirmed && onCancel != null) {
+            Runnable r = onCancel;
+            onCancel = null; // only once
+            r.run();
+        }
     }
 
     /** Just one button that closes the popup (for "you can't do that" messages). */

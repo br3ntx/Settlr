@@ -73,9 +73,9 @@ public class SinglePaymentAdapter implements PendingPayment {
     }
 
     @Override
-    public String getRejectQuestion() {
-        return "Mark " + getFromName() + "'s payment of " + MoneyUtil.format(getAmount())
-                + " as not received? The share will stay unpaid.";
+    public String getRejectExplanation() {
+        return "Nothing gets settled. " + getFromName() + "'s share of " + row.getExpenseTitle()
+                + " stays unpaid, so they can check and send it again.";
     }
 
     @Override

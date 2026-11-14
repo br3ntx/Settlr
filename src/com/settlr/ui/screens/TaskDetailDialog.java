@@ -205,27 +205,35 @@ public class TaskDetailDialog extends ModalPopup {
         if (canModify && task != null) {
             JPanel links = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
             links.setOpaque(false);
-            JLabel archive = TasksScreen.link("Archive task", () -> {
-                int answer = JOptionPane.showConfirmDialog(this, "Archive \"" + task.getTitle()
-                        + "\"?\nIt won't come up again. Past turns stay in the history.", "Archive task",
-                        JOptionPane.YES_NO_OPTION);
-                if (answer != JOptionPane.YES_OPTION) {
-                    return;
-                }
-                try {
-                    taskService.archiveTask(task.getId());
-                } catch (SettlrException ex) {
-                    JOptionPane.showMessageDialog(this, ex.getMessage());
-                    return;
-                }
-                close();
-                listener.archived(task.getTitle());
-            });
+            JLabel archive = TasksScreen.link("Archive task", () -> askToArchive(task, listener));
             archive.setForeground(Theme.DANGER);
             links.add(archive);
             row(card, links, 12, 16);
         }
         add(card);
+    }
+
+    /**
+     * Hides this popup while "Archive ...?" asks (two popups can't be open at once);
+     * Cancel brings it back.
+     */
+    private void askToArchive(Task task, Listener listener) {
+        Component over = getParent();
+        close();
+        new ConfirmDialog("Archive " + task.getTitle() + "?",
+                "It won't come up again for anyone. Past turns stay in the history.")
+                .buttons("Cancel", "Archive", true, () -> {
+                    try {
+                        taskService.archiveTask(task.getId());
+                    } catch (SettlrException ex) {
+                        new ConfirmDialog("Couldn't archive " + task.getTitle(), ex.getMessage())
+                                .okOnly("OK").showOver(over);
+                        return;
+                    }
+                    listener.archived(task.getTitle());
+                })
+                .onCancel(() -> showOver(over))
+                .showOver(over);
     }
 
     // ---------- pieces ----------

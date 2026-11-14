@@ -84,8 +84,12 @@ public class SettleUpAdapter implements PendingPayment {
     }
 
     @Override
-    public String getRejectQuestion() {
-        return "Mark it as not received? Nothing will be settled, and " + getFromName() + " can send it again.";
+    public String getRejectExplanation() {
+        if (even()) {
+            return "Nothing gets settled. You and " + getFromName() + " can settle up again later.";
+        }
+        return "Nothing gets settled. " + getFromName() + "'s " + MoneyUtil.format(getAmount())
+                + " goes back to unpaid, so they can check and send it again.";
     }
 
     @Override

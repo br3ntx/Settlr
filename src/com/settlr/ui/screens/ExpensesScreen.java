@@ -541,15 +541,6 @@ public class ExpensesScreen extends BaseScreen {
         });
     }
 
-    /** Asks first (money is involved), then runs the action, reloads and shows the result. */
-    private void confirmThen(String question, String title, Action action, String successMessage) {
-        int answer = JOptionPane.showConfirmDialog(this, question, title, JOptionPane.YES_NO_OPTION);
-        if (answer != JOptionPane.YES_OPTION) {
-            return;
-        }
-        runThen(action, successMessage);
-    }
-
     /** Runs the action, reloads and shows the result (or the error). */
     private void runThen(Action action, String successMessage) {
         String error = null;
@@ -864,7 +855,7 @@ public class ExpensesScreen extends BaseScreen {
 
     /**
      * "Ben says they paid you P1,048.20 / GCash ref 1234 \u00B7 just now   Not received [Confirm]".
- * Confirm opens ConfirmPaymentDialog with the breakdown; Not received still asks with a plain popup.
+ * Confirm opens ConfirmPaymentDialog with the breakdown; Not received asks first with a ConfirmDialog.
      * One row type for both kinds of payment: PendingPayment hides which kind it is (Adapter).
      */
     private class PendingPaymentRow extends ActionRow {
@@ -873,7 +864,10 @@ public class ExpensesScreen extends BaseScreen {
             build(p.getFromName(), p.getHeadline(), p.getDetails() + DOT + DateTimeUtil.timeAgo(p.getSentAt()),
                     () -> ConfirmPaymentDialog.open(ExpensesScreen.this, p, null,
                             () -> runThen(p::confirm, p.getConfirmedMessage())),
-                    () -> confirmThen(p.getRejectQuestion(), "Not received", p::reject, p.getRejectedMessage()));
+                    () -> new ConfirmDialog("Didn't get it?", p.getRejectExplanation())
+                            .avatar(p.getFromName())
+                            .buttons("Cancel", "Not received", true, () -> runThen(p::reject, p.getRejectedMessage()))
+                            .showOver(ExpensesScreen.this));
         }
     }
 }

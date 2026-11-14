@@ -524,20 +524,18 @@ public class TasksScreen extends BaseScreen {
         });
     }
 
-    /** Asks first, then runs the action, reloads and shows the result. */
-    private void confirmThen(String question, String title, Action action, String successMessage) {
-        int answer = JOptionPane.showConfirmDialog(this, question, title, JOptionPane.YES_NO_OPTION);
-        if (answer != JOptionPane.YES_OPTION) {
-            return;
-        }
-        String error = null;
-        try {
-            action.run();
-        } catch (SettlrException ex) {
-            error = ex.getMessage();
-        }
-        reload();
-        showMessage(error != null ? error : successMessage, error != null);
+    /** Asks with the popup first; on yes, runs the action, reloads and shows the result. */
+    private void askThen(ConfirmDialog ask, String yesText, Action action, String successMessage) {
+        ask.buttons("Cancel", yesText, false, () -> {
+            String error = null;
+            try {
+                action.run();
+            } catch (SettlrException ex) {
+                error = ex.getMessage();
+            }
+            reload();
+            showMessage(error != null ? error : successMessage, error != null);
+        }).showOver(this);
     }
 
     // =====================================================================
@@ -822,17 +820,17 @@ public class TasksScreen extends BaseScreen {
             text.add(left(label(when(s.getAssignmentDueAt()) + DOT + DateTimeUtil.timeAgo(s.getCreatedAt()),
                     Font.PLAIN, 11, Theme.MUTED_TEXT)));
 
-            JLabel decline = link("Decline", () -> confirmThen("Decline " + from + "'s swap?\n"
-                            + s.getTaskTitle() + " stays with " + from + ".", "Decline swap",
+            String what = s.getTaskTitle() + ", due " + when(s.getAssignmentDueAt());
+            JLabel decline = link("Decline", () -> askThen(new ConfirmDialog("Decline " + from + "'s swap?", what)
+                            .avatar(from), "Decline",
                     () -> swapService.decline(s.getId()), "Declined. " + s.getTaskTitle() + " stays with " + from + "."));
             RoundedButton accept = new RoundedButton("Accept");
             accept.setArc(RoundedButton.PILL);
             accept.setFont(Theme.font(Font.BOLD, 12));
             accept.setMargin(new Insets(0, 0, 0, 0));
             accept.setPreferredSize(new Dimension(84, 30));
-            accept.addActionListener(e -> confirmThen("Take " + s.getTaskTitle() + " (" + when(s.getAssignmentDueAt())
-                            + ") from " + from + "?", "Accept swap", () -> swapService.accept(s.getId()),
-                    s.getTaskTitle() + " is yours now."));
+            accept.addActionListener(e -> askThen(new ConfirmDialog("Take " + from + "'s turn?", what).avatar(from),
+                    "Accept swap", () -> swapService.accept(s.getId()), s.getTaskTitle() + " is yours now."));
             JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
             actions.setOpaque(false);
             actions.add(decline);

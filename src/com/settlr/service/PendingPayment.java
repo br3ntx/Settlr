@@ -62,8 +62,8 @@ public interface PendingPayment {
     /** The message after confirming. */
     String getConfirmedMessage();
 
-    /** The question the Not received popup asks. */
-    String getRejectQuestion();
+    /** What saying "Not received" does, for the Not received popup. */
+    String getRejectExplanation();
 
     /** The message after saying it wasn't received. */
     String getRejectedMessage();
