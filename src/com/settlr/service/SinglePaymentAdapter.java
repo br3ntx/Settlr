@@ -5,6 +5,7 @@ import com.settlr.util.MoneyUtil;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Makes an older single-share payment (BalanceService.PaymentRow, from before settle ups
@@ -46,13 +47,24 @@ public class SinglePaymentAdapter implements PendingPayment {
     }
 
     @Override
+    public String getConfirmTitle() {
+        return "Did " + getFromName() + " pay you?";
+    }
+
+    @Override
+    public List<Line> getBreakdown() {
+        return List.of(new Line(row.getExpenseTitle(), getAmount()));
+    }
+
+    @Override
     public String getConfirmQuestion() {
         return "Did " + getFromName() + " pay you " + MoneyUtil.format(getAmount()) + " for " + row.getExpenseTitle() + "?";
     }
 
     @Override
     public String getConfirmExplanation() {
-        return "This marks their share of " + row.getExpenseTitle() + " as paid.";
+        return getFromName() + " says they sent " + MoneyUtil.format(getAmount()) + " for " + row.getExpenseTitle()
+                + ". Only confirm once the money is with you. This marks their share as paid.";
     }
 
     @Override

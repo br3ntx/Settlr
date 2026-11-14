@@ -48,6 +48,7 @@ public class PendingPaymentTest {
 
         assertEquals("Ella says you're even", p.getHeadline());
         assertEquals("Are you and Ella even?", p.getConfirmQuestion());
+        assertEquals("Are you and Ella even?", p.getConfirmTitle());
     }
 
     @Test
@@ -58,6 +59,33 @@ public class PendingPaymentTest {
         assertEquals("Carlo", p.getFromName());
         assertEquals("for Groceries", p.getDetails());
         assertTrue(p.getConfirmQuestion().endsWith("for Groceries?"));
+    }
+
+    @Test
+    public void settleUpBreakdownAddsUpToTheAmount() {
+        List<PendingPayment.Line> lines = List.of(
+                new PendingPayment.Line("Rent", new BigDecimal("2400.00")),
+                new PendingPayment.Line("Water bill (you owed Dani)", new BigDecimal("-333.33")));
+        PendingPayment p = new SettleUpAdapter(new SettlementService.Incoming(
+                settlement("2066.67", null), "Dani", "Rent - Water bill", lines), null);
+
+        BigDecimal sum = BigDecimal.ZERO;
+        for (PendingPayment.Line line : p.getBreakdown()) {
+            sum = sum.add(line.getAmount());
+        }
+        assertEquals(p.getAmount(), sum);
+        assertEquals("Did Dani pay you?", p.getConfirmTitle());
+        assertTrue(p.getConfirmExplanation().contains("sent \u20B12,066.67"));
+    }
+
+    @Test
+    public void singlePaymentBreakdownIsJustThatExpense() {
+        PendingPayment p = new SinglePaymentAdapter(new BalanceService.PaymentRow(
+                12, "Carlo", "Groceries", new BigDecimal("300.00"), sent), null);
+
+        assertEquals(1, p.getBreakdown().size());
+        assertEquals("Groceries", p.getBreakdown().get(0).getLabel());
+        assertEquals(new BigDecimal("300.00"), p.getBreakdown().get(0).getAmount());
     }
 
     @Test

@@ -461,9 +461,8 @@ public class HomeScreen extends BaseScreen {
         confirm.setFont(Theme.font(Font.BOLD, 11));
         confirm.setMargin(new Insets(0, 0, 0, 0));
         confirm.setPreferredSize(new Dimension(72, 26));
-        confirm.addActionListener(e -> new ConfirmDialog(p.getConfirmQuestion(),
-                p.getConfirmExplanation() + " To mark it as not received, go to Expenses.")
-                .buttons("Not yet", "Yes, confirm", false, () -> {
+        confirm.addActionListener(e -> ConfirmPaymentDialog.open(this, p, "To mark it as not received, go to Expenses.",
+                () -> {
                     try {
                         p.confirm();
                     } catch (SettlrException ex) {
@@ -473,8 +472,7 @@ public class HomeScreen extends BaseScreen {
                     }
                     rebuild();
                     showMessage(p.getConfirmedMessage(), false);
-                })
-                .showOver(this));
+                }));
         row.add(centered(confirm), BorderLayout.EAST);
         return row;
     }

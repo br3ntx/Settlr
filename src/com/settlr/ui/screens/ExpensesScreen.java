@@ -547,6 +547,11 @@ public class ExpensesScreen extends BaseScreen {
         if (answer != JOptionPane.YES_OPTION) {
             return;
         }
+        runThen(action, successMessage);
+    }
+
+    /** Runs the action, reloads and shows the result (or the error). */
+    private void runThen(Action action, String successMessage) {
         String error = null;
         try {
             action.run();
@@ -859,14 +864,15 @@ public class ExpensesScreen extends BaseScreen {
 
     /**
      * "Ben says they paid you P1,048.20 / GCash ref 1234 \u00B7 just now   Not received [Confirm]".
+ * Confirm opens ConfirmPaymentDialog with the breakdown; Not received still asks with a plain popup.
      * One row type for both kinds of payment: PendingPayment hides which kind it is (Adapter).
      */
     private class PendingPaymentRow extends ActionRow {
         PendingPaymentRow(PendingPayment p, boolean divider) {
             super(divider);
             build(p.getFromName(), p.getHeadline(), p.getDetails() + DOT + DateTimeUtil.timeAgo(p.getSentAt()),
-                    () -> confirmThen(p.getConfirmQuestion() + "\n" + p.getConfirmExplanation(), "Confirm payment",
-                            p::confirm, p.getConfirmedMessage()),
+                    () -> ConfirmPaymentDialog.open(ExpensesScreen.this, p, null,
+                            () -> runThen(p::confirm, p.getConfirmedMessage())),
                     () -> confirmThen(p.getRejectQuestion(), "Not received", p::reject, p.getRejectedMessage()));
         }
     }

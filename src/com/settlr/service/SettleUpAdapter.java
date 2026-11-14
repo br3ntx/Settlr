@@ -5,6 +5,7 @@ import com.settlr.util.MoneyUtil;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** Makes a settle up (SettlementService.Incoming) look like a PendingPayment (Adapter pattern). */
 public class SettleUpAdapter implements PendingPayment {
@@ -50,6 +51,16 @@ public class SettleUpAdapter implements PendingPayment {
     }
 
     @Override
+    public String getConfirmTitle() {
+        return even() ? "Are you and " + getFromName() + " even?" : "Did " + getFromName() + " pay you?";
+    }
+
+    @Override
+    public List<Line> getBreakdown() {
+        return incoming.getLines();
+    }
+
+    @Override
     public String getConfirmQuestion() {
         return even() ? "Are you and " + getFromName() + " even?"
                 : "Did " + getFromName() + " pay you " + MoneyUtil.format(getAmount()) + "?";
@@ -57,7 +68,14 @@ public class SettleUpAdapter implements PendingPayment {
 
     @Override
     public String getConfirmExplanation() {
-        return "This settles everything between you two.";
+        if (even()) {
+            return "What you owe each other cancels out, so no money changes hands. "
+                    + "Confirming settles everything between you two.";
+        }
+        String note = incoming.getSettlement().getNote();
+        return getFromName() + " says they sent " + MoneyUtil.format(getAmount()) + ". "
+                + (note == null || note.isBlank() ? "" : "Their note: \"" + note.trim() + "\". ")
+                + "Only confirm once the money is with you. This settles everything between you two.";
     }
 
     @Override

@@ -66,6 +66,12 @@ public class ConfirmDialog extends ModalPopup {
         add(card);
     }
 
+    /** Puts an avatar with this name's first letter next to the title (when there's no User object). */
+    public ConfirmDialog avatar(String name) {
+        header.add(new AvatarLabel(name, 40), BorderLayout.WEST);
+        return this;
+    }
+
     /** Puts the person's avatar next to the title. */
     public ConfirmDialog avatar(User user) {
         header.add(new AvatarLabel(user, 40), BorderLayout.WEST);

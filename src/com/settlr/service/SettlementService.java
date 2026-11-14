@@ -150,17 +150,25 @@ public class SettlementService {
         private final Settlement settlement;
         private final String fromName;
         private final String summary;
+        private final List<PendingPayment.Line> lines;
 
         Incoming(Settlement settlement, String fromName, String summary) {
+            this(settlement, fromName, summary, List.of());
+        }
+
+        Incoming(Settlement settlement, String fromName, String summary, List<PendingPayment.Line> lines) {
             this.settlement = settlement;
             this.fromName = fromName;
             this.summary = summary;
+            this.lines = lines;
         }
 
         public Settlement getSettlement() { return settlement; }
         public String getFromName() { return fromName; }
         /** What it clears, e.g. "Rent \u2212 Groceries" (their shares minus the ones that cancel out). */
         public String getSummary() { return summary; }
+        /** One line per expense it clears; shares of yours that cancel out are negative. */
+        public List<PendingPayment.Line> getLines() { return lines; }
     }
 
     private final SettlementDao settlementDao = DaoFactory.get().settlements();
@@ -248,15 +256,26 @@ public class SettlementService {
 
         List<Incoming> result = new ArrayList<>();
         for (Settlement s : settlementDao.findPendingTo(me.getId(), householdId)) {
+            String from = names.getOrDefault(s.getFromUser(), "A former member");
             Set<String> paid = new LinkedHashSet<>();
             Set<String> cancelled = new LinkedHashSet<>();
+            List<PendingPayment.Line> paidLines = new ArrayList<>();
+            List<PendingPayment.Line> cancelledLines = new ArrayList<>();
             for (Payment p : paymentDao.findBySettlement(s.getId())) {
                 String title = titleOf(p.getShareId(), expenses);
-                (p.getFromUser() == s.getFromUser() ? paid : cancelled).add(title);
+                if (p.getFromUser() == s.getFromUser()) {
+                    paid.add(title);
+                    paidLines.add(new PendingPayment.Line(title, p.getAmount()));
+                } else {
+                    cancelled.add(title);
+                    cancelledLines.add(new PendingPayment.Line(title + " (you owed " + from + ")",
+                            p.getAmount().negate()));
+                }
             }
             String summary = String.join(", ", paid)
                     + (cancelled.isEmpty() ? "" : " \u2212 " + String.join(", ", cancelled));
-            result.add(new Incoming(s, names.getOrDefault(s.getFromUser(), "A former member"), summary));
+            paidLines.addAll(cancelledLines); // theirs first, then yours that cancel out
+            result.add(new Incoming(s, from, summary, paidLines));
         }
         return result;
     }

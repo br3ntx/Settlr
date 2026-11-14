@@ -4,6 +4,7 @@ import com.settlr.exception.SettlrException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * A payment someone says they sent you, waiting for you to confirm it or say you didn't get it.
@@ -15,6 +16,22 @@ import java.time.LocalDateTime;
  * with one kind of row, and Confirm / Not received work the same for both.
  */
 public interface PendingPayment {
+
+    /** One row of the Confirm popup's breakdown: an expense and how much of the payment is for it. */
+    final class Line {
+        private final String label;
+        private final BigDecimal amount;
+
+        public Line(String label, BigDecimal amount) {
+            this.label = label;
+            this.amount = amount;
+        }
+
+        /** e.g. "Rent", or "Water bill (you owed Dani)" for a share that cancels out. */
+        public String getLabel() { return label; }
+        /** Negative for a share of yours that cancels out part of theirs. */
+        public BigDecimal getAmount() { return amount; }
+    }
 
     /** Who sent it, e.g. "Dani". */
     String getFromName();
@@ -30,10 +47,16 @@ public interface PendingPayment {
     /** The smaller line under it, e.g. "for Rent" or the note they wrote. */
     String getDetails();
 
+    /** The Confirm popup's short title, e.g. "Did Dani pay you?" */
+    String getConfirmTitle();
+
+    /** What the payment covers, one Line per expense; they add up to getAmount(). */
+    List<Line> getBreakdown();
+
     /** The question the Confirm popup asks, e.g. "Did Dani pay you P2,400.00?" */
     String getConfirmQuestion();
 
-    /** What it means to confirm, in one sentence. */
+    /** What they say they sent and what confirming means, for the Confirm popup. */
     String getConfirmExplanation();
 
     /** The message after confirming. */
