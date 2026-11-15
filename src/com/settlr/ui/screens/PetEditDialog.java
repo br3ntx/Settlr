@@ -311,7 +311,7 @@ public final class PetEditDialog extends ModalPopup {
         card.add(comp);
     }
 
-    /** "Bunny \u00B7 Rare" for a named pet; just "Rare pet" when it's still called "Bunny". */
+    /** "Cat \u00B7 Common" for a named pet; just "Common pet" when it's still called "Cat". */
     static String kindHtml(OwnedPet p) {
         String rarity = "<b><font color='" + hex(ItemBubble.rarityColor(p.getPet().getRarity())) + "'>"
                 + p.getPet().getRarity().getLabel() + "</font></b>";

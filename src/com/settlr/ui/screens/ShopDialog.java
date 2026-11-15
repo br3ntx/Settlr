@@ -243,7 +243,7 @@ public final class ShopDialog extends ModalPopup {
         }
     }
 
-    private static String article(String name) {
+    static String article(String name) {
         return "AEIOU".indexOf(Character.toUpperCase(name.charAt(0))) >= 0 ? "an" : "a";
     }
 

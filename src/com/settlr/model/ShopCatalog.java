@@ -23,13 +23,14 @@ public final class ShopCatalog {
             new Cosmetic("HAT_FEDORA", "Fedora", Cosmetic.Slot.HAT, 150),
             new Cosmetic("HAT_CROWN", "Crown", Cosmetic.Slot.HAT, 300));
 
+    /**
+     * Only pets that have a picture in resources/images (see PetArt). To add one, save its
+     * picture there and add it here with a rarity; the egg's odds adjust by themselves.
+     * Pets that were removed stay in the database but are skipped when loading.
+     */
     private static final List<Pet> PETS = List.of(
             new Pet("PET_CAT", "Cat", Pet.Rarity.COMMON),
-            new Pet("PET_DOG", "Dog", Pet.Rarity.COMMON),
-            new Pet("PET_HAMSTER", "Hamster", Pet.Rarity.COMMON),
-            new Pet("PET_BUNNY", "Bunny", Pet.Rarity.RARE),
-            new Pet("PET_TURTLE", "Turtle", Pet.Rarity.RARE),
-            new Pet("PET_AXOLOTL", "Axolotl", Pet.Rarity.EPIC));
+            new Pet("PET_DOG", "Dog", Pet.Rarity.COMMON));
 
     private ShopCatalog() { }
 

@@ -1,6 +1,7 @@
 package com.settlr.ui.screens;
 
 import com.settlr.model.OwnedPet;
+import com.settlr.model.ShopCatalog;
 import com.settlr.ui.ModalPopup;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.PetArt;
@@ -79,7 +80,9 @@ public final class ChangePetDialog extends ModalPopup {
         fixed(grid, rows * 136 + (rows - 1) * 12);
         card.add(grid);
 
-        JLabel more = Ui.label("<html>Get more pets by hatching eggs in the "
+        boolean hasEveryPet = pets.size() >= ShopCatalog.pets().size();
+        JLabel more = Ui.label(hasEveryPet ? "You have every pet."
+                : "<html>Get more pets by hatching eggs in the "
                 + "<b><font color='#E8D9CD'>Shop</font></b>.</html>", Font.PLAIN, 12, Theme.MUTED_TEXT);
         card.add(Box.createVerticalStrut(8));
         fixed(more, 18);

@@ -116,35 +116,42 @@ public class ShopService {
         });
     }
 
-    /** Chance of each rarity, as a percent, for the odds line. */
+    /**
+     * Chance of each rarity, as a percent, for the odds line. Only rarities that have at least
+     * one pet in the catalog count, so with only Common pets, Common is 100%.
+     */
     public static int chanceOf(Pet.Rarity rarity) {
-        int total = 0;
-        for (Pet.Rarity r : Pet.Rarity.values()) {
-            total += r.getWeight();
+        if (ShopCatalog.pets(rarity).isEmpty()) {
+            return 0;
         }
-        return Math.round(100f * rarity.getWeight() / total);
+        return Math.round(100f * rarity.getWeight() / totalWeight());
     }
 
     /** Picks a rarity by its weight, then a pet of that rarity. Package-private so the tests can call it. */
     Pet rollPet() {
-        int total = 0;
+        int roll = random.nextInt(totalWeight());
         for (Pet.Rarity r : Pet.Rarity.values()) {
-            total += r.getWeight();
-        }
-        int roll = random.nextInt(total);
-        Pet.Rarity picked = Pet.Rarity.COMMON;
-        for (Pet.Rarity r : Pet.Rarity.values()) {
+            List<Pet> pool = ShopCatalog.pets(r);
+            if (pool.isEmpty()) { // no pets of this rarity yet: it can't be picked
+                continue;
+            }
             if (roll < r.getWeight()) {
-                picked = r;
-                break;
+                return pool.get(random.nextInt(pool.size()));
             }
             roll -= r.getWeight();
         }
-        List<Pet> pool = ShopCatalog.pets(picked);
-        if (pool.isEmpty()) { // a rarity with no pets yet: fall back to any pet
-            pool = ShopCatalog.pets();
+        throw new IllegalStateException("The catalog has no pets.");
+    }
+
+    /** The weights of the rarities that have at least one pet. */
+    private static int totalWeight() {
+        int total = 0;
+        for (Pet.Rarity r : Pet.Rarity.values()) {
+            if (!ShopCatalog.pets(r).isEmpty()) {
+                total += r.getWeight();
+            }
         }
-        return pool.get(random.nextInt(pool.size()));
+        return total;
     }
 
     private static void requireEnough(int balance, int price) throws ValidationException {

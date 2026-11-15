@@ -206,8 +206,26 @@ public class ShopScreen extends BaseScreen {
         banner.add(box, BorderLayout.WEST);
 
         StringBuilder odds = new StringBuilder();
+        List<Pet.Rarity> inPlay = new ArrayList<>(); // rarities with no pets yet aren't listed
         for (Pet.Rarity r : Pet.Rarity.values()) {
-            odds.append(r.getLabel()).append(' ').append(ShopService.chanceOf(r)).append('%').append(DOT);
+            if (ShopService.chanceOf(r) > 0) {
+                inPlay.add(r);
+            }
+        }
+        if (inPlay.size() == 1) { // every pet is the same rarity: name the pets instead, e.g. "a Cat or a Dog"
+            List<Pet> pets = ShopCatalog.pets();
+            odds.append("Hatches ");
+            for (int i = 0; i < pets.size(); i++) {
+                if (i > 0) {
+                    odds.append(i == pets.size() - 1 ? " or " : ", ");
+                }
+                odds.append(ShopDialog.article(pets.get(i).getName())).append(' ').append(pets.get(i).getName());
+            }
+            odds.append(DOT);
+        } else {
+            for (Pet.Rarity r : inPlay) {
+                odds.append(r.getLabel()).append(' ').append(ShopService.chanceOf(r)).append('%').append(DOT);
+            }
         }
         odds.append("a pet you already have gives ").append(ShopCatalog.DUPLICATE_REFUND).append(" XP back");
         JPanel text = vertical();

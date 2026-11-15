@@ -12,7 +12,7 @@ public class OwnedPet implements Prototype<OwnedPet> {
     public static final int MAX_NAME_LENGTH = 20;
 
     private final Pet pet;
-    private String name; // null = use the pet's kind, e.g. "Bunny"
+    private String name; // null = use the pet's kind, e.g. "Cat"
     private final Map<Cosmetic.Slot, Cosmetic> outfit = new EnumMap<>(Cosmetic.Slot.class);
 
     public OwnedPet(Pet pet) {
@@ -39,7 +39,7 @@ public class OwnedPet implements Prototype<OwnedPet> {
     /** The name the user gave it, or null. */
     public String getName() { return name; }
 
-    /** What to show: the name it was given, or its kind ("Bunny"). */
+    /** What to show: the name it was given, or its kind ("Cat"). */
     public String getDisplayName() {
         return name == null ? pet.getName() : name;
     }

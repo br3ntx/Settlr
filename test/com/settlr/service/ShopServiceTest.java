@@ -41,8 +41,8 @@ public class ShopServiceTest {
         }
         for (Pet.Rarity r : Pet.Rarity.values()) {
             double percent = 100.0 * counts.getOrDefault(r, 0) / rolls;
-            assertEquals(r + " should hatch about " + r.getWeight() + "% of the time",
-                    r.getWeight(), percent, 1.5);
+            int expected = ShopService.chanceOf(r); // 0 for a rarity with no pets in the catalog
+            assertEquals(r + " should hatch about " + expected + "% of the time", expected, percent, 1.5);
         }
     }
 }
