@@ -24,6 +24,13 @@ in a state that shows off a feature (a swap request waiting, a payment to confir
 
 Reset again before every practice run and right before the defense.
 
+## Sandbox for exploring
+
+`database/sandbox.sql` is the same demo data, but every account also gets 10,000 XP and every pet,
+hat and accessory, so you can try everything in the Shop and Edit pet. Load it in Workbench
+(File > Open SQL Script, then the lightning bolt). It erases `settlr_db` first, so run it again
+any time to start over. Use `reset-demo.bat` instead before practising the defense script.
+
 ## Folders
 
 | Folder | What goes there |
