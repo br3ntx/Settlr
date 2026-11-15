@@ -32,7 +32,7 @@ import java.util.Map;
  */
 public class BalanceService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     /** One unsettled share, ready to show in PaymentDialog. Read-only so the UI cannot change it. */
     public static final class ShareRow {
@@ -84,10 +84,27 @@ public class BalanceService {
         public LocalDateTime getPaidAt() { return paidAt; }
     }
 
-    private final ExpenseShareDao shareDao = DaoFactory.get().shares();
-    private final ExpenseDao expenseDao = DaoFactory.get().expenses();
-    private final PaymentDao paymentDao = DaoFactory.get().payments();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
+    private final ExpenseShareDao shareDao;
+    private final ExpenseDao expenseDao;
+    private final PaymentDao paymentDao;
+    private final MembershipDao membershipDao;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public BalanceService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public BalanceService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.shareDao = daos.shares();
+        this.expenseDao = daos.expenses();
+        this.paymentDao = daos.payments();
+        this.membershipDao = daos.memberships();
+    }
 
     // ---- public API (master doc 8.4) -----------------------------------
 

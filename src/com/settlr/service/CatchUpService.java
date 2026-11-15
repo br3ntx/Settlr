@@ -7,13 +7,13 @@ import com.settlr.dao.TaskAssignmentDao;
 import com.settlr.dao.TaskDao;
 import com.settlr.exception.SettlrException;
 import com.settlr.model.ActivityType;
-import com.settlr.model.RecurringTask;
 import com.settlr.model.SwapRequest;
 import com.settlr.model.SwapStatus;
 import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
 import com.settlr.model.User;
+import com.settlr.util.Session;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,12 +33,30 @@ public class CatchUpService {
     /** A PENDING assignment this long past its due time becomes MISSED (3.3). */
     private static final int MISSED_AFTER_HOURS = 24;
 
-    private final TaskDao taskDao = DaoFactory.get().tasks();
-    private final TaskAssignmentDao assignmentDao = DaoFactory.get().assignments();
-    private final SwapRequestDao swapDao = DaoFactory.get().swaps();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
-    private final ActivityService activityService = new ActivityService();
-    private final ExpenseService expenseService = new ExpenseService();
+    private final TaskDao taskDao;
+    private final TaskAssignmentDao assignmentDao;
+    private final SwapRequestDao swapDao;
+    private final MembershipDao membershipDao;
+    private final ActivityService activityService;
+    private final ExpenseService expenseService;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public CatchUpService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public CatchUpService(DaoFactory daos, Session session) {
+        this.taskDao = daos.tasks();
+        this.assignmentDao = daos.assignments();
+        this.swapDao = daos.swaps();
+        this.membershipDao = daos.memberships();
+        this.activityService = new ActivityService(daos, session);
+        this.expenseService = new ExpenseService(daos, session);
+    }
 
     /** Runs the four catch-up steps in the order required by 3.7. */
     public void runOnStartup() throws SettlrException {
@@ -79,8 +97,8 @@ public class CatchUpService {
 
     private void createRecurringAssignments(LocalDateTime now) throws SettlrException {
         for (Task task : taskDao.findAllActive()) {
-            if (task instanceof RecurringTask) {
-                catchUpTask((RecurringTask) task, now);
+            if (task.repeats()) {
+                catchUpTask(task, now);
             }
         }
     }
@@ -89,8 +107,9 @@ public class CatchUpService {
      * Creates every assignment from the task's latest one up to and including
      * the first one still in the future. If the latest is already in the
      * future there is nothing to do, which is what makes a second run harmless.
+     * Who gets each turn is up to the task itself (Task.nextAssignee).
      */
-    private void catchUpTask(RecurringTask task, LocalDateTime now) throws SettlrException {
+    private void catchUpTask(Task task, LocalDateTime now) throws SettlrException {
         TaskAssignment latest = assignmentDao.findLatestForTask(task.getId());
         List<User> members = membershipDao.findActiveMembers(task.getHouseholdId());
         if (latest == null || members.isEmpty()) {
@@ -101,38 +120,12 @@ public class CatchUpService {
         int previousAssignee = latest.getAssigneeId();
         while (!cursor.isAfter(now)) {
             cursor = task.getNextDueDate(cursor);
-            previousAssignee = chooseAssignee(task, previousAssignee, members);
+            if (cursor == null) {
+                return; // no more due dates
+            }
+            previousAssignee = task.nextAssignee(previousAssignee, members);
             // insertIfAbsent, because UNIQUE (task_id, due_at) must never be violated.
             assignmentDao.insertIfAbsent(new TaskAssignment(task.getId(), previousAssignee, cursor));
         }
-    }
-
-    /**
-     * Rotating task: the next active member after the previous assignee in
-     * join order (wrapping around). If that person left, start again from the
-     * first member. Non-rotating task: always the same person.
-     * Package-private and static so TaskService can preview upcoming turns with the same rule.
-     */
-    static int chooseAssignee(RecurringTask task, int previousAssignee, List<User> members) {
-        if (!task.isRotates()) {
-            return isActive(members, task.getDefaultAssigneeId())
-                    ? task.getDefaultAssigneeId()
-                    : members.get(0).getId();
-        }
-        for (int i = 0; i < members.size(); i++) {
-            if (members.get(i).getId() == previousAssignee) {
-                return members.get((i + 1) % members.size()).getId();
-            }
-        }
-        return members.get(0).getId();
-    }
-
-    private static boolean isActive(List<User> members, int userId) {
-        for (User member : members) {
-            if (member.getId() == userId) {
-                return true;
-            }
-        }
-        return false;
     }
 }

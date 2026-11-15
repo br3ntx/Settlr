@@ -12,6 +12,7 @@ import com.settlr.model.User;
 import com.settlr.service.HomeService;
 import com.settlr.service.PendingPayment;
 import com.settlr.service.PetService;
+import com.settlr.ui.Background;
 import com.settlr.ui.BaseScreen;
 import com.settlr.ui.Navigator;
 import com.settlr.ui.components.AvatarLabel;
@@ -54,6 +55,22 @@ public class HomeScreen extends BaseScreen {
     private static final DateTimeFormatter BILL_DAY = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
 
     private final HomeService homeService = new HomeService(); // everything Home shows (Facade)
+    private final Background background = new Background();    // loads off the Swing thread
+
+    /** The three parts of Home, loaded together in the background. Each can fail on its own. */
+    private static final class HomeData {
+        final Background.Result<HomeService.TaskSummary> tasks;
+        final Background.Result<HomeService.PetSummary> pet;
+        final Background.Result<HomeService.MoneySummary> money;
+
+        HomeData(HomeService service) {
+            tasks = Background.Result.of(service::getTasks);
+            pet = Background.Result.of(service::getPet);
+            money = Background.Result.of(service::getMoney);
+        }
+    }
+
+    private HomeData data; // null until the first load finishes
 
     private final JLabel crumb = label(" ", Font.PLAIN, 12, Theme.MUTED_TEXT);
     private final JLabel hello = label(" ", Font.BOLD, 30, Theme.PRIMARY);
@@ -104,7 +121,11 @@ public class HomeScreen extends BaseScreen {
     @Override
     public void onShow() {
         showMessage(" ", false);
-        rebuild();
+        if (isNewUser()) {
+            data = null; // never show the last user's numbers while the new ones load
+            rebuild();
+        }
+        reload();
     }
 
     /**
@@ -137,6 +158,15 @@ public class HomeScreen extends BaseScreen {
         }
     }
 
+    /** Loads Home's data in the background, then rebuilds the page with it. */
+    private void reload() {
+        background.load(() -> new HomeData(homeService), loaded -> {
+            data = loaded;
+            rebuild();
+        }, e -> showMessage(e.getMessage(), true));
+    }
+
+    /** Lays out the page from the data already loaded (also used when the window is resized). */
     private void rebuild() {
         computeSizes();
         body.removeAll();
@@ -145,6 +175,11 @@ public class HomeScreen extends BaseScreen {
         crumb.setText((h == null ? "" : h.getName() + DOT) + "Home");
         hello.setText("Hi, " + (me == null ? "" : me.getDisplayName()));
         dateLabel.setText(TODAY.format(LocalDate.now()));
+        if (data == null) {
+            body.revalidate();
+            body.repaint();
+            return; // still loading
+        }
 
         GridBagConstraints c = new GridBagConstraints();
         c.gridy = 0;
@@ -174,7 +209,7 @@ public class HomeScreen extends BaseScreen {
         GlassCard card = card();
         HomeService.TaskSummary tasks;
         try {
-            tasks = homeService.getTasks();
+            tasks = data.tasks.get();
         } catch (SettlrException e) {
             return errorCard(card, "Your tasks", e);
         }
@@ -275,11 +310,11 @@ public class HomeScreen extends BaseScreen {
         try {
             late = homeService.completeTask(a);
         } catch (SettlrException e) {
-            rebuild();
+            reload();
             showMessage(e.getMessage(), true);
             return;
         }
-        rebuild();
+        reload();
         showMessage(late ? a.getTaskTitle() + " is done (late)."
                 : "Nice! " + a.getTaskTitle() + " is done. +" + TasksScreen.points(a.getTaskPoints()), false);
     }
@@ -288,11 +323,11 @@ public class HomeScreen extends BaseScreen {
         try {
             homeService.answerSwap(s, accept);
         } catch (SettlrException e) {
-            rebuild();
+            reload();
             showMessage(e.getMessage(), true);
             return;
         }
-        rebuild();
+        reload();
         showMessage(accept ? s.getTaskTitle() + " is yours now." : "You declined " + s.getFromUserName() + "'s swap.",
                 false);
     }
@@ -305,7 +340,7 @@ public class HomeScreen extends BaseScreen {
         JPanel area = vertical();
         HomeService.PetSummary pet;
         try {
-            pet = homeService.getPet();
+            pet = data.pet.get();
         } catch (DataAccessException e) {
             e.printStackTrace();
             JLabel l = label("<html><div style='text-align:center;width:260px'>Can't load your pet. If MySQL is "
@@ -373,7 +408,7 @@ public class HomeScreen extends BaseScreen {
             return;
         }
         PetEditDialog.open(this, pets, shownCode, owned, () -> {
-            rebuild();
+            reload();
             showMessage("Saved your pet.", false);
         });
     }
@@ -386,7 +421,7 @@ public class HomeScreen extends BaseScreen {
         GlassCard card = card();
         HomeService.MoneySummary money;
         try {
-            money = homeService.getMoney();
+            money = data.money.get();
         } catch (SettlrException e) {
             return errorCard(card, "Money", e);
         }
@@ -466,11 +501,11 @@ public class HomeScreen extends BaseScreen {
                     try {
                         p.confirm();
                     } catch (SettlrException ex) {
-                        rebuild();
+                        reload();
                         showMessage(ex.getMessage(), true);
                         return;
                     }
-                    rebuild();
+                    reload();
                     showMessage(p.getConfirmedMessage(), false);
                 }));
         row.add(centered(confirm), BorderLayout.EAST);

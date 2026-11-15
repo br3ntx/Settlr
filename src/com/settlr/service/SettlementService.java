@@ -17,9 +17,9 @@ import com.settlr.model.Payment;
 import com.settlr.model.PaymentStatus;
 import com.settlr.model.Settlement;
 import com.settlr.model.User;
-import com.settlr.util.Transaction;
 import com.settlr.util.MoneyUtil;
 import com.settlr.util.Session;
+import com.settlr.util.TransactionRunner;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -47,7 +47,7 @@ import java.util.Set;
  */
 public class SettlementService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     private static final String SAVE_FAILED = "Could not save the settle up. Please try again.";
 
@@ -171,12 +171,33 @@ public class SettlementService {
         public List<PendingPayment.Line> getLines() { return lines; }
     }
 
-    private final SettlementDao settlementDao = DaoFactory.get().settlements();
-    private final PaymentDao paymentDao = DaoFactory.get().payments();
-    private final ExpenseShareDao shareDao = DaoFactory.get().shares();
-    private final ExpenseDao expenseDao = DaoFactory.get().expenses();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
-    private final ActivityService activityService = new ActivityService();
+    private final SettlementDao settlementDao;
+    private final PaymentDao paymentDao;
+    private final ExpenseShareDao shareDao;
+    private final ExpenseDao expenseDao;
+    private final MembershipDao membershipDao;
+    private final ActivityService activityService;
+    private final TransactionRunner tx;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public SettlementService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public SettlementService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.tx = daos.transactions();
+        this.settlementDao = daos.settlements();
+        this.paymentDao = daos.payments();
+        this.shareDao = daos.shares();
+        this.expenseDao = daos.expenses();
+        this.membershipDao = daos.memberships();
+        this.activityService = new ActivityService(daos, session);
+    }
 
     // =====================================================================
     //  Reading
@@ -351,7 +372,7 @@ public class SettlementService {
             payments.add(newPayment(line, otherUserId, me.getId(), now, "Cancelled out in a settle up"));
         }
 
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             int id = settlementDao.insert(c, settlement);
             for (Payment p : payments) {
                 p.setSettlementId(id);
@@ -370,7 +391,7 @@ public class SettlementService {
         LocalDateTime now = LocalDateTime.now();
         List<Payment> payments = paymentDao.findBySettlement(s.getId());
 
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             for (Payment p : payments) {
                 if (p.getStatus() != PaymentStatus.PENDING) {
                     continue;
@@ -404,7 +425,7 @@ public class SettlementService {
         Settlement s = loadPendingForReceiver(settlementId);
         LocalDateTime now = LocalDateTime.now();
         List<Payment> payments = paymentDao.findBySettlement(s.getId());
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             for (Payment p : payments) {
                 if (p.getStatus() == PaymentStatus.PENDING) {
                     p.setStatus(PaymentStatus.REJECTED);

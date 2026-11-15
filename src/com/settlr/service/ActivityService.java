@@ -1,7 +1,7 @@
 package com.settlr.service;
 
-import com.settlr.dao.DaoFactory;
 import com.settlr.dao.ActivityLogDao;
+import com.settlr.dao.DaoFactory;
 import com.settlr.dao.MembershipDao;
 import com.settlr.exception.AuthException;
 import com.settlr.exception.NotFoundException;
@@ -24,8 +24,24 @@ import java.util.List;
  */
 public class ActivityService {
 
-    private final ActivityLogDao activityLogDao = DaoFactory.get().activityLog();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
+    private final ActivityLogDao activityLogDao;
+    private final MembershipDao membershipDao;
+    private final Session session;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public ActivityService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public ActivityService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.activityLogDao = daos.activityLog();
+        this.membershipDao = daos.memberships();
+    }
 
     /**
      * Records one event for the household the user is currently an active member of.
@@ -59,7 +75,6 @@ public class ActivityService {
         if (limit < 1) {
             throw new ValidationException("The feed needs to show at least 1 event.");
         }
-        Session session = Session.getInstance();
         if (!session.isLoggedIn()) {
             throw new AuthException("Please log in first.");
         }

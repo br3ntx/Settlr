@@ -16,8 +16,8 @@ import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
 import com.settlr.model.User;
-import com.settlr.util.Transaction;
 import com.settlr.util.Session;
+import com.settlr.util.TransactionRunner;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,15 +29,35 @@ import java.util.List;
  */
 public class SwapService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     private static final String SAVE_FAILED = "Could not save your changes. Please try again.";
 
-    private final SwapRequestDao swapDao = DaoFactory.get().swaps();
-    private final TaskAssignmentDao assignmentDao = DaoFactory.get().assignments();
-    private final TaskDao taskDao = DaoFactory.get().tasks();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
-    private final ActivityService activityService = new ActivityService();
+    private final SwapRequestDao swapDao;
+    private final TaskAssignmentDao assignmentDao;
+    private final TaskDao taskDao;
+    private final MembershipDao membershipDao;
+    private final ActivityService activityService;
+    private final TransactionRunner tx;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public SwapService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public SwapService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.tx = daos.transactions();
+        this.swapDao = daos.swaps();
+        this.assignmentDao = daos.assignments();
+        this.taskDao = daos.tasks();
+        this.membershipDao = daos.memberships();
+        this.activityService = new ActivityService(daos, session);
+    }
 
     // ---- public API (master doc 8.4) -----------------------------------
 
@@ -74,7 +94,7 @@ public class SwapService {
         a.setAssigneeId(userId);
         swap.setStatus(SwapStatus.ACCEPTED);
         swap.setRespondedAt(now);
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             assignmentDao.update(c, a);
             swapDao.update(c, swap);
         });
@@ -143,7 +163,4 @@ public class SwapService {
         }
         throw new ValidationException("You can only ask an active member of your household.");
     }
-
-    // ---- session and transaction helpers -------------------------------
-
 }

@@ -1,9 +1,11 @@
 package com.settlr.model;
 
+import com.settlr.util.PasswordHasher;
+
 import java.time.LocalDateTime;
 
 /**
- * A Settlr account. Stores only the SHA-256 password hash, never the raw password.
+ * A Settlr account. Stores only the salted password hash (see PasswordHasher), never the raw password.
  * Case-insensitive username uniqueness is a database/service concern, not checked here.
  */
 public class User {
@@ -59,10 +61,11 @@ public class User {
 
     public String getPasswordHash() { return passwordHash; }
 
+    /** Takes a hash made by PasswordHasher (never the password itself). */
     public void setPasswordHash(String passwordHash) {
-        if (passwordHash == null || !passwordHash.matches("[0-9a-fA-F]{64}"))
-            throw new IllegalArgumentException("Password hash must be exactly 64 hexadecimal characters.");
-        this.passwordHash = passwordHash.toLowerCase();
+        if (!PasswordHasher.isValidHash(passwordHash))
+            throw new IllegalArgumentException("That is not a password hash Settlr can check.");
+        this.passwordHash = passwordHash;
     }
 
     public LocalDateTime getCreatedAt() { return createdAt; }

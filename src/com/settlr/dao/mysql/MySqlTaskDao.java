@@ -3,12 +3,13 @@ package com.settlr.dao.mysql;
 import com.settlr.dao.TaskDao;
 import com.settlr.exception.DataAccessException;
 import com.settlr.factory.TaskCreator;
-import com.settlr.model.RecurringTask;
+import com.settlr.factory.TaskRecord;
 import com.settlr.model.Task;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /** The tasks table in MySQL. */
@@ -43,16 +44,15 @@ public class MySqlTaskDao extends AbstractDao<Task> implements TaskDao {
 
     @Override
     public int insert(Connection c, Task task) throws DataAccessException {
-        boolean recurring = task instanceof RecurringTask;
         return insert(c, "INSERT INTO tasks (household_id, title, description, points, task_type, "
                         + "recurrence, first_due_at, default_assignee_id, rotates, created_by) "
                         + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 "Could not save the task.",
                 task.getHouseholdId(), task.getTitle(), task.getDescription(), task.getPoints(),
-                recurring ? RECURRING : ONE_TIME,
-                recurring ? ((RecurringTask) task).getRecurrence() : null,
+                task.repeats() ? RECURRING : ONE_TIME,
+                task.getRecurrence(), // null for a one-time task
                 task.getFirstDueAt(), task.getDefaultAssigneeId(),
-                recurring && ((RecurringTask) task).isRotates(), task.getCreatedBy());
+                task.isRotates(), task.getCreatedBy());
     }
 
     @Override
@@ -66,15 +66,13 @@ public class MySqlTaskDao extends AbstractDao<Task> implements TaskDao {
     /** task_type, household and creator never change, so they're left alone. */
     @Override
     public void update(Connection c, Task task) throws DataAccessException {
-        boolean recurring = task instanceof RecurringTask;
         update(c, "UPDATE tasks SET title = ?, description = ?, points = ?, recurrence = ?, "
                         + "first_due_at = ?, default_assignee_id = ?, rotates = ?, is_archived = ? "
                         + "WHERE task_id = ?",
                 "Could not update the task.",
                 task.getTitle(), task.getDescription(), task.getPoints(),
-                recurring ? ((RecurringTask) task).getRecurrence() : null,
-                task.getFirstDueAt(), task.getDefaultAssigneeId(),
-                recurring && ((RecurringTask) task).isRotates(), task.isArchived(), task.getId());
+                task.getRecurrence(), task.getFirstDueAt(), task.getDefaultAssigneeId(),
+                task.isRotates(), task.isArchived(), task.getId());
     }
 
     /** "Deleting" a task archives it: the row stays so past turns keep working. */
@@ -88,9 +86,17 @@ public class MySqlTaskDao extends AbstractDao<Task> implements TaskDao {
         update(c, "UPDATE tasks SET is_archived = TRUE WHERE task_id = ?", "Could not delete the task.", id);
     }
 
-    /** Which class to build (OneTimeTask or RecurringTask) is decided by a TaskCreator (Factory Method). */
+    /**
+     * Reads the row into a plain TaskRecord; which class to build (OneTimeTask or RecurringTask)
+     * is then decided by a TaskCreator (Factory Method).
+     */
     @Override
     protected Task mapRow(ResultSet rs) throws SQLException {
-        return TaskCreator.forType(rs.getString("task_type")).fromRow(rs);
+        TaskRecord record = new TaskRecord(rs.getInt("task_id"), rs.getInt("household_id"),
+                rs.getString("task_type"), rs.getString("title"), rs.getString("description"),
+                rs.getInt("points"), rs.getString("recurrence"),
+                rs.getObject("first_due_at", LocalDateTime.class), rs.getInt("default_assignee_id"),
+                rs.getBoolean("rotates"), rs.getInt("created_by"), rs.getBoolean("is_archived"));
+        return TaskCreator.forType(record.getType()).fromRecord(record);
     }
 }

@@ -21,11 +21,11 @@ USE settlr_db;
 
 -- ---------------------------------------------------------------- accounts
 INSERT INTO users (user_id, username, display_name, password_hash, created_at) VALUES
-  (1, 'ana',   'Ana',   SHA2('settlr123', 256), NOW() - INTERVAL 31 DAY),
-  (2, 'ben',   'Ben',   SHA2('settlr123', 256), NOW() - INTERVAL 30 DAY),
-  (3, 'carlo', 'Carlo', SHA2('settlr123', 256), NOW() - INTERVAL 30 DAY),
-  (4, 'dani',  'Dani',  SHA2('settlr123', 256), NOW() - INTERVAL 29 DAY),
-  (5, 'ella',  'Ella',  SHA2('settlr123', 256), NOW() - INTERVAL 29 DAY);
+  (1, 'ana',   'Ana',   'p1$AgnoOfvzgRVtarxG$qekKQqmoGuvJnhgirSZV7bpQGlgDobRt_KO5ffFrxAI', NOW() - INTERVAL 31 DAY),
+  (2, 'ben',   'Ben',   'p1$x7R0sii21r_GhiSo$f_7eBXpA9F65uIlukzoA1Pe0mdqrUungseVfJu26zt8', NOW() - INTERVAL 30 DAY),
+  (3, 'carlo', 'Carlo', 'p1$32oz1r_S0Gs52lgP$vORaJ9k_HlOx4yBPlhT60wcWqbV6OQw0-52oIPNVcUM', NOW() - INTERVAL 30 DAY),
+  (4, 'dani',  'Dani',  'p1$tju4-J-0EbNhe50r$DVvy2CugCRm64ZcVtZa4CWxFqZgLJwh2LRZRVMccieo', NOW() - INTERVAL 29 DAY),
+  (5, 'ella',  'Ella',  'p1$Z5cxsOMD5OOK8s15$-MY6CsqgElU64aTdVY77r9f4ld4ExTJLOTVlxhrCmYo', NOW() - INTERVAL 29 DAY);
 
 INSERT INTO households (household_id, name, invite_code, created_by, created_at) VALUES
   (1, 'Casa Mabini', 'MABN42', 1, NOW() - INTERVAL 31 DAY);

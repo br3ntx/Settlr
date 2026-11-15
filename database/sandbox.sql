@@ -28,7 +28,7 @@ CREATE TABLE users (
     user_id        INT AUTO_INCREMENT PRIMARY KEY,
     username       VARCHAR(30)  NOT NULL UNIQUE,
     display_name   VARCHAR(50)  NOT NULL,
-    password_hash  CHAR(64)     NOT NULL,  -- SHA-256 as 64 hex characters
+    password_hash  CHAR(64)     NOT NULL,  -- salted PBKDF2, "p1$salt$hash" (63 chars); old accounts: SHA-256 hex
     created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     avatar_path    VARCHAR(255) NULL,      -- profile picture under uploads/avatars, NULL = initials
     pay_method     ENUM('GCASH','MAYA','BANK','CASH') NULL,  -- "How to pay me", NULL = not set
@@ -251,13 +251,13 @@ USE settlr_db;
 
 -- ---------------------------------------------------------------- accounts
 INSERT INTO users (user_id, username, display_name, password_hash, created_at, pay_method, pay_number, pay_name) VALUES
-  (1, 'ana',   'Ana',   SHA2('settlr123', 256), NOW() - INTERVAL 40 DAY, 'GCASH', '0917 555 0142', 'Ana M.'),
-  (2, 'ben',   'Ben',   SHA2('settlr123', 256), NOW() - INTERVAL 39 DAY, 'MAYA',  '0918 555 0199', 'Ben T.'),
-  (3, 'carlo', 'Carlo', SHA2('settlr123', 256), NOW() - INTERVAL 39 DAY, NULL, NULL, NULL),
-  (4, 'dani',  'Dani',  SHA2('settlr123', 256), NOW() - INTERVAL 38 DAY, 'BANK',  'BPI 1234 5678 90', 'Dani C.'),
-  (5, 'ella',  'Ella',  SHA2('settlr123', 256), NOW() - INTERVAL 38 DAY, 'CASH',  NULL, NULL),
-  (6, 'gio',   'Gio',   SHA2('settlr123', 256), NOW() - INTERVAL 3 DAY,  NULL, NULL, NULL),
-  (7, 'fritz', 'Fritz', SHA2('settlr123', 256), NOW() - INTERVAL 1 DAY,  NULL, NULL, NULL);
+  (1, 'ana',   'Ana',   'p1$RBhLUuJ-rbNLVvh9$AlksOC77YOHhhSetuzT0XGle3-knuLkGNyGVcp6dxMU', NOW() - INTERVAL 40 DAY, 'GCASH', '0917 555 0142', 'Ana M.'),
+  (2, 'ben',   'Ben',   'p1$lfAMn6ZsVRe_wASJ$uFNIyQmUEnbc0A88q2Tln12dtpmCrTOv6eij6Cu6WPI', NOW() - INTERVAL 39 DAY, 'MAYA',  '0918 555 0199', 'Ben T.'),
+  (3, 'carlo', 'Carlo', 'p1$30Teyl72ASMsYGE3$dZGHJ7f_dmgXvxaT8W97ZlDdYMEraI4KFMTp02oHOvE', NOW() - INTERVAL 39 DAY, NULL, NULL, NULL),
+  (4, 'dani',  'Dani',  'p1$ISSrwBcc1DT6AQJC$SHmYyDe0czVmOd-5ZLoQvSE9tcoMMoizFCaTEH_Q0WI', NOW() - INTERVAL 38 DAY, 'BANK',  'BPI 1234 5678 90', 'Dani C.'),
+  (5, 'ella',  'Ella',  'p1$85P8NlwDSDkTUQrG$9Rzc5sZmTMf-t5eNZvaxNAiyKpuxL0zMV3QLT8TY7z0', NOW() - INTERVAL 38 DAY, 'CASH',  NULL, NULL),
+  (6, 'gio',   'Gio',   'p1$39atKdtOjg1Eao5i$9eEm1qH-DoPX-lq8J28vtTSqnGJ0lPqF_gA-RnCGx18', NOW() - INTERVAL 3 DAY,  NULL, NULL, NULL),
+  (7, 'fritz', 'Fritz', 'p1$GnyTJacN592s5lso$4wyZ0B32qTeWW9w7M1ftlGdQgsKA2JKFq4tHZoNG0b4', NOW() - INTERVAL 1 DAY,  NULL, NULL, NULL);
 
 INSERT INTO households (household_id, name, invite_code, created_by, created_at) VALUES
   (1, 'Casa Mabini', 'MABN42', 1, NOW() - INTERVAL 40 DAY);

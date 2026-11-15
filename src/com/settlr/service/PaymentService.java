@@ -15,9 +15,9 @@ import com.settlr.model.ExpenseShare;
 import com.settlr.model.Payment;
 import com.settlr.model.PaymentStatus;
 import com.settlr.model.User;
-import com.settlr.util.Transaction;
 import com.settlr.util.MoneyUtil;
 import com.settlr.util.Session;
+import com.settlr.util.TransactionRunner;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -35,15 +35,35 @@ import java.util.Set;
  */
 public class PaymentService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     private static final String SAVE_FAILED = "Could not save your payment. Please try again.";
 
-    private final PaymentDao paymentDao = DaoFactory.get().payments();
-    private final ExpenseShareDao shareDao = DaoFactory.get().shares();
-    private final ExpenseDao expenseDao = DaoFactory.get().expenses();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
-    private final ActivityService activityService = new ActivityService();
+    private final PaymentDao paymentDao;
+    private final ExpenseShareDao shareDao;
+    private final ExpenseDao expenseDao;
+    private final MembershipDao membershipDao;
+    private final ActivityService activityService;
+    private final TransactionRunner tx;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public PaymentService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public PaymentService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.tx = daos.transactions();
+        this.paymentDao = daos.payments();
+        this.shareDao = daos.shares();
+        this.expenseDao = daos.expenses();
+        this.membershipDao = daos.memberships();
+        this.activityService = new ActivityService(daos, session);
+    }
 
     /** A payment together with its share and expense, loaded and checked once. */
     private static final class Loaded {
@@ -111,7 +131,7 @@ public class PaymentService {
             payments.add(newPendingPayment(shareId, me.getId(), payeeId, share, now));
         }
 
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             for (Payment p : payments) {
                 p.setId(paymentDao.insert(c, p));
             }
@@ -135,7 +155,7 @@ public class PaymentService {
         payment.setConfirmedAt(LocalDateTime.now());
         share.setSettledAt(payment.getPaidAt());
 
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             paymentDao.update(c, payment);
             shareDao.update(c, share);
         });
@@ -228,8 +248,6 @@ public class PaymentService {
         }
         return expense;
     }
-
-    // ---- session -------------------------------------------------------
 
     // ---- helpers -------------------------------------------------------
 

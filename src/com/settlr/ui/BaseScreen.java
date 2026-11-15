@@ -1,6 +1,8 @@
 package com.settlr.ui;
 
+import com.settlr.model.User;
 import com.settlr.ui.theme.Theme;
+import com.settlr.util.Session;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -26,6 +28,21 @@ public abstract class BaseScreen extends JPanel {
 
     /** Reload this screen's data. Called each time the screen is shown. */
     public abstract void onShow();
+
+    private int lastUserId = -1;
+
+    /**
+     * True the first time the screen is shown to a different user than last time. Screens load
+     * in the background, so they use this to clear the old user's data instead of showing it
+     * while the new data loads.
+     */
+    protected boolean isNewUser() {
+        User user = Session.getInstance().getCurrentUser();
+        int id = user == null ? 0 : user.getId();
+        boolean changed = id != lastUserId;
+        lastUserId = id;
+        return changed;
+    }
 
     /** Login and Household Setup return false to hide the sidebar. */
     public boolean showsSidebar() {

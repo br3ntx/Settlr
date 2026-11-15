@@ -8,6 +8,7 @@ import com.settlr.model.Pet;
 import com.settlr.model.ShopCatalog;
 import com.settlr.model.ShopItem;
 import com.settlr.service.ShopService;
+import com.settlr.ui.Background;
 import com.settlr.ui.BaseScreen;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.SegmentedControl;
@@ -102,31 +103,47 @@ public class ShopScreen extends BaseScreen {
         add(scroll, BorderLayout.CENTER);
     }
 
+    private final Background background = new Background(); // loads off the Swing thread
+
     @Override
     public void onShow() {
         Household h = Session.getInstance().getCurrentHousehold();
         crumb.setText((h == null ? "" : h.getName() + DOT) + "Shop");
         filter.setSelected(0);
+        showMessage(" ", false);
         reload();
     }
 
-    /** Loads the XP and owned items again and redraws the grid. */
-    private void reload() {
-        try {
-            balance = shopService.getBalance();
-            owned = shopService.getOwnedCodes();
-            showMessage(" ", false);
-        } catch (DataAccessException e) {
-            balance = 0;
-            owned = Collections.emptySet();
-            showMessage("Can't load the Shop. If MySQL is running, run database/migrations/003_add_shop.sql once.",
-                    true);
-            e.printStackTrace();
-        } catch (SettlrException e) {
-            showMessage(e.getMessage(), true);
+    /** XP and owned items, loaded together in the background. */
+    private static final class ShopData {
+        final int balance;
+        final Set<String> owned;
+
+        ShopData(ShopService service) throws SettlrException {
+            balance = service.getBalance();
+            owned = service.getOwnedCodes();
         }
-        xpPill.setXp(balance);
-        fillGrid();
+    }
+
+    /** Loads the XP and owned items again in the background, then redraws the grid. */
+    private void reload() {
+        background.load(() -> new ShopData(shopService), data -> {
+            balance = data.balance;
+            owned = data.owned;
+            xpPill.setXp(balance);
+            fillGrid();
+        }, e -> {
+            if (e instanceof DataAccessException) {
+                balance = 0;
+                owned = Collections.emptySet();
+                showMessage("Can't load the Shop. If MySQL is running, run database/migrations/003_add_shop.sql once.",
+                        true);
+            } else {
+                showMessage(e.getMessage(), true);
+            }
+            xpPill.setXp(balance);
+            fillGrid();
+        });
     }
 
     private void fillGrid() {

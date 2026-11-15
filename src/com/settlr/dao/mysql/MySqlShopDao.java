@@ -7,6 +7,7 @@ import com.settlr.model.OwnedPet;
 import com.settlr.model.Pet;
 import com.settlr.model.ShopCatalog;
 import com.settlr.model.ShopItem;
+import com.settlr.model.XpActivity;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -20,41 +21,59 @@ import java.util.Set;
 /** The Shop and pets in MySQL: owned_items, users.active_pet and xp_transactions. */
 public class MySqlShopDao extends AbstractDao<OwnedPet> implements ShopDao {
 
-    /** XP from finished tasks (more when on time). Its two ? are the user id (and an optional time). */
-    private static final String TASK_XP =
-            "(SELECT COALESCE(SUM(CASE a.status WHEN 'DONE' THEN t.points * " + XP_PER_POINT
-          + " ELSE t.points * " + XP_PER_POINT_LATE + " END), 0) "
+    /**
+     * Counts what earns XP: points of tasks done on time and late, and confirmed payments sent
+     * by the day after they were due. The two ? of each part are the user id and, in %s,
+     * an optional "since" condition. How much XP these are worth is decided by XpRules.
+     */
+    private static final String ACTIVITY =
+            "SELECT "
+          + "(SELECT COALESCE(SUM(CASE WHEN a.status = 'DONE' THEN t.points ELSE 0 END), 0) "
           + "   FROM task_assignments a JOIN tasks t ON t.task_id = a.task_id "
-          + "  WHERE a.assignee_id = ? AND a.status IN ('DONE','DONE_LATE') %s)";
-
-    /** XP from payments the other person confirmed, sent by the day after they were due. */
-    private static final String PAYMENT_XP =
-            "(SELECT COUNT(*) * " + XP_PER_PAYMENT
+          + "  WHERE a.assignee_id = ? %1$s), "
+          + "(SELECT COALESCE(SUM(CASE WHEN a.status = 'DONE_LATE' THEN t.points ELSE 0 END), 0) "
+          + "   FROM task_assignments a JOIN tasks t ON t.task_id = a.task_id "
+          + "  WHERE a.assignee_id = ? %1$s), "
+          + "(SELECT COUNT(*) "
           + "   FROM payments p "
           + "   JOIN expense_shares s ON s.share_id = p.share_id "
           + "   JOIN expenses e ON e.expense_id = s.expense_id "
-          + "  WHERE p.from_user = ? AND p.status = 'CONFIRMED' %s "
+          + "  WHERE p.from_user = ? AND p.status = 'CONFIRMED' %2$s "
           + "    AND p.paid_at < DATE_ADD(e.due_date, INTERVAL 1 DAY))";
 
-    /** Worked out from the tasks and payments themselves, so it can never drift out of step. */
-    private static final String EARNED = String.format(TASK_XP, "") + " + " + String.format(PAYMENT_XP, "");
+    private static final String ADJUSTMENTS =
+            "SELECT COALESCE(SUM(amount), 0) FROM xp_transactions WHERE user_id = ?";
 
     @Override
-    public int findEarnedSince(int userId, LocalDateTime since) throws DataAccessException {
-        String sql = "SELECT " + String.format(TASK_XP, "AND a.completed_at >= ?")
-                + " + " + String.format(PAYMENT_XP, "AND p.confirmed_at >= ?");
-        return query(sql, rs -> rs.getInt(1), "Could not load your XP.", userId, since, userId, since).get(0);
+    public XpActivity findXpActivity(int userId, LocalDateTime since) throws DataAccessException {
+        if (since == null) {
+            return withConnection("Could not load your XP.", c -> findXpActivity(c, userId));
+        }
+        String sql = String.format(ACTIVITY, "AND a.completed_at >= ?", "AND p.confirmed_at >= ?");
+        return query(sql, MySqlShopDao::toActivity, "Could not load your XP.",
+                userId, since, userId, since, userId, since).get(0);
+    }
+
+    /** The same counts over all time, inside the caller's transaction. */
+    @Override
+    public XpActivity findXpActivity(Connection c, int userId) throws DataAccessException {
+        return query(c, String.format(ACTIVITY, "", ""), MySqlShopDao::toActivity, "Could not load your XP.",
+                userId, userId, userId).get(0);
     }
 
     @Override
-    public int findBalance(int userId) throws DataAccessException {
-        return withConnection("Could not load your XP.", c -> findBalance(c, userId));
+    public int findXpAdjustments(Connection c, int userId) throws DataAccessException {
+        return query(c, ADJUSTMENTS, rs -> rs.getInt(1), "Could not load your XP.", userId).get(0);
     }
 
     @Override
-    public int findBalance(Connection c, int userId) throws DataAccessException {
-        String sql = "SELECT " + EARNED + " + (SELECT COALESCE(SUM(amount), 0) FROM xp_transactions WHERE user_id = ?)";
-        return query(c, sql, rs -> rs.getInt(1), "Could not load your XP.", userId, userId, userId).get(0);
+    public int findXpAdjustments(int userId) throws DataAccessException {
+        return withConnection("Could not load your XP.", c -> findXpAdjustments(c, userId));
+    }
+
+    /** Turns the three counts of the ACTIVITY query into an XpActivity. */
+    private static XpActivity toActivity(ResultSet rs) throws SQLException {
+        return new XpActivity(rs.getInt(1), rs.getInt(2), rs.getInt(3));
     }
 
     @Override

@@ -5,7 +5,7 @@ CREATE TABLE users (
     user_id        INT AUTO_INCREMENT PRIMARY KEY,
     username       VARCHAR(30)  NOT NULL UNIQUE,
     display_name   VARCHAR(50)  NOT NULL,
-    password_hash  CHAR(64)     NOT NULL,  -- SHA-256 as 64 hex characters
+    password_hash  CHAR(64)     NOT NULL,  -- salted PBKDF2, "p1$salt$hash" (63 chars); old accounts: SHA-256 hex
     created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     avatar_path    VARCHAR(255) NULL,      -- profile picture under uploads/avatars, NULL = initials
     pay_method     ENUM('GCASH','MAYA','BANK','CASH') NULL,  -- "How to pay me", NULL = not set

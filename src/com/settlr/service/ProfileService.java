@@ -12,13 +12,10 @@ import com.settlr.model.Household;
 import com.settlr.model.PayMethod;
 import com.settlr.model.Role;
 import com.settlr.model.User;
+import com.settlr.util.ImageUtil;
 import com.settlr.util.PasswordHasher;
 import com.settlr.util.Session;
 
-import javax.imageio.ImageIO;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,7 +29,7 @@ import java.nio.file.Paths;
  */
 public class ProfileService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     /** Where profile pictures are saved, relative to the project folder (git ignores uploads/). */
     public static final String AVATAR_FOLDER = "uploads/avatars";
@@ -56,9 +53,25 @@ public class ProfileService {
         public int getMemberCount() { return memberCount; }
     }
 
-    private final UserDao userDao = DaoFactory.get().users();
-    private final HouseholdDao householdDao = DaoFactory.get().households();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
+    private final UserDao userDao;
+    private final HouseholdDao householdDao;
+    private final MembershipDao membershipDao;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public ProfileService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public ProfileService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.userDao = daos.users();
+        this.householdDao = daos.households();
+        this.membershipDao = daos.memberships();
+    }
 
     // =====================================================================
     //  Reading
@@ -76,7 +89,6 @@ public class ProfileService {
 
     /** Your household, your role and how many people are in it, or null if you're not in one yet. */
     public HouseholdInfo getHouseholdInfo() throws SettlrException {
-        Session session = Session.getInstance();
         if (session.getCurrentHousehold() == null) {
             return null;
         }
@@ -166,24 +178,18 @@ public class ProfileService {
         if (image.length() > MAX_PHOTO_BYTES) {
             throw new ValidationException("That image is too big. Please pick one under 5 MB.");
         }
-        BufferedImage source;
-        try {
-            source = ImageIO.read(image);
-        } catch (IOException e) {
-            source = null;
-        }
-        if (source == null) {
-            throw new ValidationException("That file isn't a picture Settlr can open. Try a JPG or PNG.");
-        }
-
         User u = editableCopy();
         Path folder = Paths.get(AVATAR_FOLDER);
         Path target = folder.resolve("user_" + u.getId() + "_" + System.currentTimeMillis() + ".png");
+        boolean saved;
         try {
             Files.createDirectories(folder);
-            ImageIO.write(squareThumbnail(source), "png", target.toFile());
+            saved = ImageUtil.saveSquarePng(image, target, PHOTO_SIZE);
         } catch (IOException e) {
             throw new DataAccessException("Could not save the picture.", e);
+        }
+        if (!saved) {
+            throw new ValidationException("That file isn't a picture Settlr can open. Try a JPG or PNG.");
         }
         String old = u.getAvatarPath();
         u.setAvatarPath(AVATAR_FOLDER + "/" + target.getFileName());
@@ -233,19 +239,6 @@ public class ProfileService {
         if (!PasswordHasher.matches(password, u.getPasswordHash())) {
             throw new ValidationException("Your current password is incorrect.");
         }
-    }
-
-    /** The middle square of the picture, scaled to PHOTO_SIZE. */
-    private static BufferedImage squareThumbnail(BufferedImage src) {
-        int side = Math.min(src.getWidth(), src.getHeight());
-        int x = (src.getWidth() - side) / 2, y = (src.getHeight() - side) / 2;
-        BufferedImage out = new BufferedImage(PHOTO_SIZE, PHOTO_SIZE, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = out.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.drawImage(src, 0, 0, PHOTO_SIZE, PHOTO_SIZE, x, y, x + side, y + side, null);
-        g.dispose();
-        return out;
     }
 
     /** Deletes an old picture, but only inside uploads/avatars. */

@@ -1,6 +1,8 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.exception.SettlrException;
+import com.settlr.util.Session;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,9 +14,24 @@ import java.util.List;
  */
 public class PaymentInbox {
 
-    private final SettlementService settlementService = new SettlementService();
-    private final BalanceService balanceService = new BalanceService();
-    private final PaymentService paymentService = new PaymentService();
+    private final SettlementService settlementService;
+    private final BalanceService balanceService;
+    private final PaymentService paymentService;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public PaymentInbox() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public PaymentInbox(DaoFactory daos, Session session) {
+        this.settlementService = new SettlementService(daos, session);
+        this.balanceService = new BalanceService(daos, session);
+        this.paymentService = new PaymentService(daos, session);
+    }
 
     public List<PendingPayment> getWaitingForMe() throws SettlrException {
         List<PendingPayment> all = new ArrayList<>();

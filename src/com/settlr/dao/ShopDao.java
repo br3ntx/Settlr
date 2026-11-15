@@ -2,6 +2,7 @@ package com.settlr.dao;
 
 import com.settlr.exception.DataAccessException;
 import com.settlr.model.OwnedPet;
+import com.settlr.model.XpActivity;
 
 import java.sql.Connection;
 import java.time.LocalDateTime;
@@ -10,23 +11,26 @@ import java.util.Set;
 
 /**
  * The Shop and pets: owned_items (including each pet's name and outfit), users.active_pet,
- * xp_transactions, and the XP a user has earned. Rows here have no id of their own, so this
+ * xp_transactions, and what a user did to earn XP. Rows here have no id of their own, so this
  * isn't a Dao<T>.
  */
 public interface ShopDao {
 
-    /** XP for each task point done on time / done late, and for each payment made on time. */
-    int XP_PER_POINT = 10;
-    int XP_PER_POINT_LATE = 5;
-    int XP_PER_PAYMENT = 20;
+    /**
+     * What the user did that earns XP (task points on time / late, payments on time), counted
+     * from the given time on, or over all time when since is null. The XP it is worth is
+     * worked out by XpRules in the service layer.
+     */
+    XpActivity findXpActivity(int userId, LocalDateTime since) throws DataAccessException;
 
-    /** XP earned from tasks and confirmed on-time payments since the given time (e.g. this week). */
-    int findEarnedSince(int userId, LocalDateTime since) throws DataAccessException;
+    /** The same counts over all time, read inside a transaction. */
+    XpActivity findXpActivity(Connection c, int userId) throws DataAccessException;
 
-    /** XP the user has right now: earned, minus what they spent, plus what they got back. */
-    int findBalance(int userId) throws DataAccessException;
+    /** The total of xp_transactions: XP spent (negative) plus XP given back (positive). */
+    int findXpAdjustments(Connection c, int userId) throws DataAccessException;
 
-    int findBalance(Connection c, int userId) throws DataAccessException;
+    /** The same total, read outside a transaction. */
+    int findXpAdjustments(int userId) throws DataAccessException;
 
     /** The codes of everything the user owns (hats and pets), oldest first. */
     Set<String> findOwnedCodes(int userId) throws DataAccessException;

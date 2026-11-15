@@ -24,17 +24,34 @@ import java.util.List;
  */
 public class NotificationService {
 
-    private final TaskService taskService = new TaskService();
-    private final PaymentService paymentService = new PaymentService();
-    private final ExpenseShareDao expenseShareDao = DaoFactory.get().shares();
-    private final SettlementService settlementService = new SettlementService();
+    private final TaskService taskService;
+    private final PaymentService paymentService;
+    private final ExpenseShareDao expenseShareDao;
+    private final SettlementService settlementService;
+    private final Session session;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public NotificationService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public NotificationService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.taskService = new TaskService(daos, session);
+        this.paymentService = new PaymentService(daos, session);
+        this.expenseShareDao = daos.shares();
+        this.settlementService = new SettlementService(daos, session);
+    }
 
     /**
      * Overdue tasks, unpaid shares past their due date, and payments waiting for the user to
      * confirm. If all three are empty the result's isEmpty() is true and no dialog should open.
      */
     public Reminders getLoginReminders() throws SettlrException {
-        Session session = Session.getInstance();
         if (!session.isLoggedIn()) {
             throw new AuthException("Please log in first.");
         }

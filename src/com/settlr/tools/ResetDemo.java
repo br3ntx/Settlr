@@ -32,8 +32,10 @@ public final class ResetDemo {
     private static final String CONFIG = "resources/config/db.properties";
     private static final String[] SCRIPTS = {"database/schema.sql", "database/demo.sql"};
 
+    /** Not meant to be created: everything is static. */
     private ResetDemo() { }
 
+    /** Asks for YES (unless run with --yes), then drops settlr_db and runs schema.sql and demo.sql. */
     public static void main(String[] args) {
         System.out.println("This ERASES everything in settlr_db and loads the demo data.");
         if (!(args.length > 0 && args[0].equals("--yes"))) {
@@ -72,6 +74,7 @@ public final class ResetDemo {
         }
     }
 
+    /** Reads the MySQL address, user and password from resources/config/db.properties. */
     private static Properties loadConfig() throws IOException {
         Properties props = new Properties();
         try (InputStream in = new FileInputStream(CONFIG)) {
@@ -80,6 +83,7 @@ public final class ResetDemo {
         return props;
     }
 
+    /** The whole text of a .sql file. */
     private static String read(String file) throws IOException {
         Path path = Paths.get(file);
         return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
@@ -142,6 +146,7 @@ public final class ResetDemo {
         return out;
     }
 
+    /** Adds the statement to the list unless it is only spaces (e.g. after the last ';'). */
     private static void addIfNotBlank(List<String> out, StringBuilder sql) {
         String s = sql.toString().trim();
         if (!s.isEmpty()) {

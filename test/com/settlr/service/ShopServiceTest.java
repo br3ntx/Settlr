@@ -1,7 +1,9 @@
 package com.settlr.service;
 
+import com.settlr.dao.memory.InMemoryDaoFactory;
 import com.settlr.model.Pet;
 import com.settlr.model.ShopCatalog;
+import com.settlr.util.Session;
 import org.junit.Test;
 
 import java.util.EnumMap;
@@ -25,7 +27,7 @@ public class ShopServiceTest {
 
     @Test
     public void eggOnlyGivesPetsFromTheCatalog() {
-        ShopService shop = new ShopService(new Random(7));
+        ShopService shop = new ShopService(new InMemoryDaoFactory(), Session.getInstance(), new Random(7));
         for (int i = 0; i < 500; i++) {
             assertTrue(ShopCatalog.pets().contains(shop.rollPet()));
         }
@@ -33,7 +35,7 @@ public class ShopServiceTest {
 
     @Test
     public void rarerPetsHatchLessOften() {
-        ShopService shop = new ShopService(new Random(123)); // fixed seed: same result every run
+        ShopService shop = new ShopService(new InMemoryDaoFactory(), Session.getInstance(), new Random(123)); // fixed seed: same result every run
         Map<Pet.Rarity, Integer> counts = new EnumMap<>(Pet.Rarity.class);
         int rolls = 20_000;
         for (int i = 0; i < rolls; i++) {

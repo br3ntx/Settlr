@@ -9,10 +9,11 @@ import com.settlr.model.Cosmetic;
 import com.settlr.model.Pet;
 import com.settlr.model.ShopCatalog;
 import com.settlr.model.ShopItem;
-import com.settlr.util.Transaction;
 import com.settlr.util.Session;
+import com.settlr.util.TransactionRunner;
 
 import java.security.SecureRandom;
+import java.sql.Connection;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -24,7 +25,7 @@ import java.util.Set;
  */
 public class ShopService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     private static final String SAVE_FAILED = "Could not save your purchase. Please try again.";
 
@@ -48,21 +49,39 @@ public class ShopService {
         public int getBalanceAfter() { return balanceAfter; }
     }
 
-    private final ShopDao shopDao = DaoFactory.get().shop();
+    private final ShopDao shopDao;
+    private final TransactionRunner tx;
     private final Random random;
 
+    /** Uses the app's MySQL DAOs, the logged-in Session and a secure random for the egg. */
     public ShopService() {
-        this(new SecureRandom());
+        this(DaoFactory.get(), Session.getInstance());
     }
 
-    /** For tests: pass a seeded Random to get the same egg results every time. */
-    ShopService(Random random) {
+    public ShopService(DaoFactory daos, Session session) {
+        this(daos, session, new SecureRandom());
+    }
+
+    /**
+     * Everything this service needs is passed in (dependency injection): tests give it
+     * in-memory DAOs, and a seeded Random so the egg gives the same results every time.
+     */
+    public ShopService(DaoFactory daos, Session session, Random random) {
+        this.session = session;
+        this.shopDao = daos.shop();
+        this.tx = daos.transactions();
         this.random = random;
     }
 
-    /** The current user's XP. */
+    /** The current user's XP: earned (XpRules) plus what they got back, minus what they spent. */
     public int getBalance() throws SettlrException {
-        return shopDao.findBalance(session.requireUser().getId());
+        int userId = session.requireUser().getId();
+        return XpRules.balance(shopDao.findXpActivity(userId, null), shopDao.findXpAdjustments(userId));
+    }
+
+    /** The same balance, read inside a transaction (after lockUser, so nothing changes it meanwhile). */
+    private int balanceIn(Connection c, int userId) throws SettlrException {
+        return XpRules.balance(shopDao.findXpActivity(c, userId), shopDao.findXpAdjustments(c, userId));
     }
 
     /** Codes of the hats and pets the current user owns. */
@@ -78,12 +97,12 @@ public class ShopService {
         }
         Cosmetic cosmetic = (Cosmetic) item;
         int userId = session.requireUser().getId();
-        return Transaction.get(SAVE_FAILED, c -> {
+        return tx.get(SAVE_FAILED, c -> {
             shopDao.lockUser(c, userId);
             if (shopDao.findOwnedCodes(c, userId).contains(cosmetic.getCode())) {
                 throw new ValidationException("You already have the " + cosmetic.getName() + ".");
             }
-            int balance = shopDao.findBalance(c, userId);
+            int balance = balanceIn(c, userId);
             requireEnough(balance, cosmetic.getPrice());
             shopDao.insertTransaction(c, userId, -cosmetic.getPrice(), "Bought " + cosmetic.getName());
             shopDao.insertOwned(c, userId, cosmetic.getCode());
@@ -98,9 +117,9 @@ public class ShopService {
     public HatchResult hatchEgg() throws SettlrException {
         int userId = session.requireUser().getId();
         Pet pet = rollPet();
-        return Transaction.get(SAVE_FAILED, c -> {
+        return tx.get(SAVE_FAILED, c -> {
             shopDao.lockUser(c, userId);
-            int balance = shopDao.findBalance(c, userId);
+            int balance = balanceIn(c, userId);
             requireEnough(balance, ShopCatalog.EGG_PRICE);
             shopDao.insertTransaction(c, userId, -ShopCatalog.EGG_PRICE, "Hatched a pet egg");
             boolean duplicate = shopDao.findOwnedCodes(c, userId).contains(pet.getCode());

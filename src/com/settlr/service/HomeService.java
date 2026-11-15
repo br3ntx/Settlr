@@ -1,5 +1,6 @@
 package com.settlr.service;
 
+import com.settlr.dao.DaoFactory;
 import com.settlr.exception.SettlrException;
 import com.settlr.model.OwnedPet;
 import com.settlr.model.RecurringBill;
@@ -29,14 +30,34 @@ import java.util.Set;
  */
 public class HomeService {
 
-    private final Session session = Session.getInstance();
-    private final TaskService taskService = new TaskService();
-    private final SwapService swapService = new SwapService();
-    private final SettlementService settlementService = new SettlementService();
-    private final HouseholdService householdService = new HouseholdService();
-    private final PaymentInbox paymentInbox = new PaymentInbox();
-    private final ShopService shopService = new ShopService();
-    private final PetService petService = new PetService();
+    private final Session session;
+    private final TaskService taskService;
+    private final SwapService swapService;
+    private final SettlementService settlementService;
+    private final HouseholdService householdService;
+    private final PaymentInbox paymentInbox;
+    private final ShopService shopService;
+    private final PetService petService;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public HomeService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public HomeService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.taskService = new TaskService(daos, session);
+        this.swapService = new SwapService(daos, session);
+        this.settlementService = new SettlementService(daos, session);
+        this.householdService = new HouseholdService(daos, session);
+        this.paymentInbox = new PaymentInbox(daos, session);
+        this.shopService = new ShopService(daos, session);
+        this.petService = new PetService(daos, session);
+    }
 
     // =====================================================================
     //  What Home shows

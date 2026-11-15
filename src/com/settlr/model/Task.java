@@ -1,11 +1,16 @@
 package com.settlr.model;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * A chore definition (what the chore is), not one due date. Each actual due
  * date is a TaskAssignment. Abstract so that OneTimeTask and RecurringTask
  * can each decide how their next due date is worked out (polymorphism).
+ *
+ * The services never check which kind of task they have (no instanceof): they ask the task
+ * itself, e.g. getNextDueDate(), nextAssignee() or checkSchedule(), and each subclass answers
+ * in its own way.
  */
 public abstract class Task {
 
@@ -34,6 +39,42 @@ public abstract class Task {
      * task has no further due date.
      */
     public abstract LocalDateTime getNextDueDate(LocalDateTime after);
+
+    /** True if the task has more than one due date (it repeats). */
+    public abstract boolean repeats();
+
+    /** How often the task repeats, or null if it doesn't (saved as NULL in the recurrence column). */
+    public abstract Recurrence getRecurrence();
+
+    /** True if the turns pass from member to member. Only a repeating task can rotate. */
+    public boolean isRotates() {
+        return false;
+    }
+
+    /**
+     * Who does the turn after previousAssignee's, given the active members in join order.
+     * Here: always the default assignee (or the first member, if they left). RecurringTask
+     * overrides this to pass the turn to the next member when it rotates.
+     */
+    public int nextAssignee(int previousAssignee, List<User> members) {
+        if (members == null || members.isEmpty()) {
+            throw new IllegalArgumentException("There is nobody to give the task to.");
+        }
+        for (User member : members) {
+            if (member.getId() == defaultAssigneeId) {
+                return defaultAssigneeId;
+            }
+        }
+        return members.get(0).getId();
+    }
+
+    /**
+     * Throws IllegalArgumentException if the schedule can't work. Nothing to check for a
+     * one-time task; RecurringTask checks the day of the month for monthly tasks.
+     */
+    public void checkSchedule() {
+        // a one-time task can be due on any date
+    }
 
     // Setters are final because the constructor calls them; a subclass must
     // not be able to override the validation.

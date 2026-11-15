@@ -7,6 +7,7 @@ import com.settlr.model.Role;
 import com.settlr.model.User;
 import com.settlr.service.AuthService;
 import com.settlr.service.ProfileService;
+import com.settlr.ui.Background;
 import com.settlr.ui.BaseScreen;
 import com.settlr.ui.Navigator;
 import com.settlr.ui.components.AvatarLabel;
@@ -98,27 +99,43 @@ public class ProfileScreen extends BaseScreen {
         messageLabel.setBorder(new EmptyBorder(10, 2, 0, 0));
     }
 
+    private final Background background = new Background(); // loads off the Swing thread
+
+    /** You and your household, loaded together in the background. */
+    private static final class ProfileData {
+        final User me;
+        final ProfileService.HouseholdInfo info;
+
+        ProfileData(ProfileService service) throws SettlrException {
+            me = service.getMe();
+            info = service.getHouseholdInfo();
+        }
+    }
+
     @Override
     public void onShow() {
         showMessage(" ", false);
+        if (isNewUser()) {
+            content.removeAll(); // don't show the last user's profile while this one loads
+            content.repaint();
+        }
         rebuild();
     }
 
-    /** Builds the whole page again from fresh data (cheap: it's a handful of components). */
+    /** Loads fresh data in the background, then builds the whole page again (a handful of components). */
     private void rebuild() {
-        content.removeAll();
-        User me;
-        ProfileService.HouseholdInfo info;
-        try {
-            me = profileService.getMe();
-            info = profileService.getHouseholdInfo();
-        } catch (SettlrException e) {
+        background.load(() -> new ProfileData(profileService), data -> build(data.me, data.info), e -> {
+            content.removeAll();
             content.add(left(label("Profile", Font.BOLD, 30, Theme.PRIMARY)));
             content.add(left(label(e.getMessage(), Font.PLAIN, 13, Theme.DANGER)));
             content.revalidate();
             content.repaint();
-            return;
-        }
+        });
+    }
+
+    /** Builds the page from what was loaded. Runs on the Swing thread. */
+    private void build(User me, ProfileService.HouseholdInfo info) {
+        content.removeAll();
 
         content.add(left(label("Profile", Font.BOLD, 30, Theme.PRIMARY)));
         content.add(Box.createVerticalStrut(14));

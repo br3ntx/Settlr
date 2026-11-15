@@ -18,7 +18,8 @@ import java.sql.SQLException;
  *     int left = Transaction.get("Could not save your purchase.", c -> { ...; return balance; });
  *
  * The services decide where a transaction starts and ends; the DAOs still hold every SQL
- * statement and take the Connection as their first parameter.
+ * statement and take the Connection as their first parameter. Services reach this class
+ * through a TransactionRunner (Transaction.MYSQL), which their DaoFactory gives them.
  */
 public final class Transaction {
 
@@ -33,6 +34,14 @@ public final class Transaction {
     public interface WorkWithResult<T> {
         T run(Connection c) throws SettlrException;
     }
+
+    /** Real MySQL transactions, for services (MySqlDaoFactory hands this out). */
+    public static final TransactionRunner MYSQL = new TransactionRunner() {
+        @Override
+        public <T> T get(String failMessage, WorkWithResult<T> work) throws SettlrException {
+            return Transaction.get(failMessage, work);
+        }
+    };
 
     private Transaction() { }
 

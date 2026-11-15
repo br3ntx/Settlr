@@ -14,6 +14,8 @@ import com.settlr.dao.SwapRequestDao;
 import com.settlr.dao.TaskAssignmentDao;
 import com.settlr.dao.TaskDao;
 import com.settlr.dao.UserDao;
+import com.settlr.util.Transaction;
+import com.settlr.util.TransactionRunner;
 
 /** The family of DAOs that talk to MySQL. This is the one the app uses. */
 public class MySqlDaoFactory extends DaoFactory {
@@ -43,4 +45,6 @@ public class MySqlDaoFactory extends DaoFactory {
     @Override public ActivityLogDao activityLog() { return new MySqlActivityLogDao(); }
 
     @Override public ShopDao shop() { return new MySqlShopDao(); }
+
+    @Override public TransactionRunner transactions() { return Transaction.MYSQL; }
 }

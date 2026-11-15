@@ -18,7 +18,7 @@ import com.settlr.model.User;
 import com.settlr.split.EqualSplit;
 import com.settlr.split.SplitStrategy;
 import com.settlr.util.Session;
-import com.settlr.util.Transaction;
+import com.settlr.util.TransactionRunner;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -42,13 +42,33 @@ import java.util.stream.Collectors;
  */
 public class ExpenseService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
-    private final ExpenseDao expenseDao = DaoFactory.get().expenses();
-    private final RecurringBillDao recurringBillDao = DaoFactory.get().recurringBills();
-    private final ExpenseShareDao expenseShareDao = DaoFactory.get().shares();
-    private final PaymentDao paymentDao = DaoFactory.get().payments();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
+    private final ExpenseDao expenseDao;
+    private final RecurringBillDao recurringBillDao;
+    private final ExpenseShareDao expenseShareDao;
+    private final PaymentDao paymentDao;
+    private final MembershipDao membershipDao;
+    private final TransactionRunner tx;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public ExpenseService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public ExpenseService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.tx = daos.transactions();
+        this.expenseDao = daos.expenses();
+        this.recurringBillDao = daos.recurringBills();
+        this.expenseShareDao = daos.shares();
+        this.paymentDao = daos.payments();
+        this.membershipDao = daos.memberships();
+    }
 
     // ---------- public API (signatures from master doc section 8.4) ----------
 
@@ -68,8 +88,8 @@ public class ExpenseService {
         validateAmount(e.getAmount());
         validateMemberIds(splitAmong);
 
-        int householdId = Session.getInstance().getCurrentHousehold().getId();
-        int userId = Session.getInstance().getCurrentUser().getId();
+        int householdId = session.getCurrentHousehold().getId();
+        int userId = session.getCurrentUser().getId();
         // The form doesn't know these two, so the service fills them in from the session.
         e.setHouseholdId(householdId);
         e.setCreatedBy(userId);
@@ -92,9 +112,9 @@ public class ExpenseService {
             throw new ValidationException("Due day must be between 1 and 28.");
         }
 
-        int householdId = Session.getInstance().getCurrentHousehold().getId();
+        int householdId = session.getCurrentHousehold().getId();
         b.setHouseholdId(householdId);
-        b.setCreatedBy(Session.getInstance().getCurrentUser().getId());
+        b.setCreatedBy(session.getCurrentUser().getId());
         requireActiveMembers(householdId, b.getPaidBy(), b.getMemberIds());
 
         b.setId(recurringBillDao.insert(b));
@@ -108,13 +128,13 @@ public class ExpenseService {
     public void deleteExpense(int expenseId) throws SettlrException {
         session.requireUser();
         Expense expense = expenseDao.findById(expenseId);
-        int householdId = Session.getInstance().getCurrentHousehold().getId();
+        int householdId = session.getCurrentHousehold().getId();
         // Another household's expense is reported as "not found" so its existence isn't leaked.
         if (expense == null || expense.getHouseholdId() != householdId) {
             throw new NotFoundException("That expense could not be found.");
         }
-        boolean isCreator = expense.getCreatedBy() == Session.getInstance().getCurrentUser().getId();
-        if (!isCreator && !Session.getInstance().isAdmin()) {
+        boolean isCreator = expense.getCreatedBy() == session.getCurrentUser().getId();
+        if (!isCreator && !session.isAdmin()) {
             throw new PermissionDeniedException(
                     "Only the person who added this expense or an Admin can delete it.");
         }
@@ -129,14 +149,14 @@ public class ExpenseService {
     public List<Expense> getExpenses(ExpenseCategory filterOrNull) throws SettlrException {
         session.requireUser();
         return expenseDao.findByHousehold(
-                Session.getInstance().getCurrentHousehold().getId(), filterOrNull);
+                session.getCurrentHousehold().getId(), filterOrNull);
     }
 
     /** Each expense's shares, keyed by expense id (the Expenses page shows "your share" from this). */
     public Map<Integer, List<ExpenseShare>> getSharesByExpense() throws SettlrException {
         session.requireUser();
         Map<Integer, List<ExpenseShare>> byExpense = new HashMap<>();
-        int householdId = Session.getInstance().getCurrentHousehold().getId();
+        int householdId = session.getCurrentHousehold().getId();
         for (ExpenseShare share : expenseShareDao.findByHousehold(householdId)) {
             byExpense.computeIfAbsent(share.getExpenseId(), id -> new ArrayList<>()).add(share);
         }
@@ -249,7 +269,7 @@ public class ExpenseService {
      */
     private void saveExpenseWithShares(Expense expense, List<ExpenseShare> shares, RecurringBill billOrNull)
             throws SettlrException {
-        Transaction.run("Could not save the expense.", c -> {
+        tx.run("Could not save the expense.", c -> {
             int expenseId = expenseDao.insert(c, expense);
             expense.setId(expenseId);
             for (ExpenseShare share : shares) {

@@ -27,9 +27,26 @@ public class AuthService {
     /** Shortest password allowed (register and change password). */
     public static final int MIN_PASSWORD_LENGTH = 6;
 
-    private final UserDao userDao = DaoFactory.get().users();
-    private final HouseholdDao householdDao = DaoFactory.get().households();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
+    private final UserDao userDao;
+    private final HouseholdDao householdDao;
+    private final MembershipDao membershipDao;
+    private final Session session;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public AuthService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public AuthService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.userDao = daos.users();
+        this.householdDao = daos.households();
+        this.membershipDao = daos.memberships();
+    }
 
     /**
      * Checks the username and password, then starts the Session.
@@ -47,13 +64,14 @@ public class AuthService {
         if (user == null || !PasswordHasher.matches(password, user.getPasswordHash())) {
             throw new AuthException(LOGIN_FAILED);
         }
+        upgradeOldHash(user, password);
 
         Membership membership = membershipDao.findActiveMembershipOf(user.getId());
         Household household = membership == null ? null : householdDao.findById(membership.getHouseholdId());
         if (household == null) {
-            Session.getInstance().start(user);
+            session.start(user);
         } else {
-            Session.getInstance().start(user, household, membership.getRole());
+            session.start(user, household, membership.getRole());
         }
         return user;
     }
@@ -94,6 +112,24 @@ public class AuthService {
 
     /** Clears the Session. The caller then shows the Login screen. */
     public void logout() {
-        Session.getInstance().end();
+        session.end();
+    }
+
+    /**
+     * Accounts made before PBKDF2 still have an unsalted SHA-256 hash. The password was just
+     * checked, so this is the one moment it can be re-hashed the new way. If saving fails the
+     * login still works; it simply tries again next time.
+     */
+    private void upgradeOldHash(User user, String password) {
+        if (!PasswordHasher.needsUpgrade(user.getPasswordHash())) {
+            return;
+        }
+        String oldHash = user.getPasswordHash();
+        user.setPasswordHash(PasswordHasher.hash(password));
+        try {
+            userDao.update(user);
+        } catch (SettlrException e) {
+            user.setPasswordHash(oldHash); // keep what the database still has
+        }
     }
 }

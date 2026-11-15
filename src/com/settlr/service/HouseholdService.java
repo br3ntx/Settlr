@@ -16,7 +16,6 @@ import com.settlr.model.ActivityType;
 import com.settlr.model.Household;
 import com.settlr.model.Membership;
 import com.settlr.model.RecurringBill;
-import com.settlr.model.RecurringTask;
 import com.settlr.model.Role;
 import com.settlr.model.SwapRequest;
 import com.settlr.model.SwapStatus;
@@ -40,7 +39,7 @@ import java.util.Map;
  */
 public class HouseholdService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     private static final int MAX_CODE_ATTEMPTS = 10;
 
@@ -62,14 +61,37 @@ public class HouseholdService {
         public boolean isAdmin() { return role == Role.ADMIN; }
     }
 
-    private final HouseholdDao householdDao = DaoFactory.get().households();
-    private final TaskDao taskDao = DaoFactory.get().tasks();
-    private final TaskAssignmentDao assignmentDao = DaoFactory.get().assignments();
-    private final SwapRequestDao swapDao = DaoFactory.get().swaps();
-    private final RecurringBillDao billDao = DaoFactory.get().recurringBills();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
-    private final UserDao userDao = DaoFactory.get().users();
-    private final ActivityService activityService = new ActivityService();
+    private final HouseholdDao householdDao;
+    private final TaskDao taskDao;
+    private final TaskAssignmentDao assignmentDao;
+    private final SwapRequestDao swapDao;
+    private final RecurringBillDao billDao;
+    private final MembershipDao membershipDao;
+    private final UserDao userDao;
+    private final ActivityService activityService;
+    private final SettlementService settlementService;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public HouseholdService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public HouseholdService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.householdDao = daos.households();
+        this.taskDao = daos.tasks();
+        this.assignmentDao = daos.assignments();
+        this.swapDao = daos.swaps();
+        this.billDao = daos.recurringBills();
+        this.membershipDao = daos.memberships();
+        this.userDao = daos.users();
+        this.activityService = new ActivityService(daos, session);
+        this.settlementService = new SettlementService(daos, session);
+    }
 
     /** Creates a household with the current user as Admin and stores it in the Session. */
     public Household create(String name) throws SettlrException {
@@ -91,7 +113,7 @@ public class HouseholdService {
         membershipDao.insert(new Membership(household.getId(), user.getId(), Role.ADMIN,
                 LocalDateTime.now(), true));
 
-        Session.getInstance().setHousehold(household, Role.ADMIN);
+        session.setHousehold(household, Role.ADMIN);
         logMemberJoined(user, user.getDisplayName() + " created " + household.getName());
         return household;
     }
@@ -118,7 +140,7 @@ public class HouseholdService {
         membershipDao.insert(new Membership(household.getId(), user.getId(), Role.MEMBER,
                 LocalDateTime.now(), true));
 
-        Session.getInstance().setHousehold(household, Role.MEMBER);
+        session.setHousehold(household, Role.MEMBER);
         logMemberJoined(user, user.getDisplayName() + " joined the household");
         return household;
     }
@@ -199,7 +221,7 @@ public class HouseholdService {
         }
         membershipDao.updateRole(household.getId(), userId, role);
         if (userId == me.getId()) {
-            Session.getInstance().setHousehold(household, role);
+            session.setHousehold(household, role);
         }
     }
 
@@ -235,10 +257,10 @@ public class HouseholdService {
         User me = session.requireUser();
         Household household = session.requireHousehold();
         List<Member> members = getMemberList();
-        if (Session.getInstance().isAdmin() && countAdmins() <= 1 && members.size() > 1) {
+        if (session.isAdmin() && countAdmins() <= 1 && members.size() > 1) {
             throw new ValidationException("You're the only Admin. Make someone else Admin before you leave.");
         }
-        if (!new SettlementService().getDebtsOf(me.getId()).isEmpty()) {
+        if (!settlementService.getDebtsOf(me.getId()).isEmpty()) {
             throw new ValidationException("Settle up what you owe before you leave.");
         }
         int fallback = 0; // who gets your non-rotating tasks: another Admin, else anyone
@@ -259,7 +281,7 @@ public class HouseholdService {
         if (fallback != 0) {
             handOff(household.getId(), me.getId(), before, fallback);
         }
-        Session.getInstance().setHousehold(null, null);
+        session.setHousehold(null, null);
     }
 
     /** The household's monthly bills, running and paused. */
@@ -330,7 +352,7 @@ public class HouseholdService {
                 continue;
             }
             Task task = taskDao.findById(a.getTaskId());
-            boolean rotates = task instanceof RecurringTask && ((RecurringTask) task).isRotates();
+            boolean rotates = task != null && task.isRotates();
             a.setAssigneeId(rotates ? nextAfter(before, leavingId) : fallbackId);
             assignmentDao.update(a);
         }

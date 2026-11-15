@@ -9,7 +9,7 @@ import com.settlr.model.OwnedPet;
 import com.settlr.model.TaskAssignment;
 import com.settlr.util.DateTimeUtil;
 import com.settlr.util.Session;
-import com.settlr.util.Transaction;
+import com.settlr.util.TransactionRunner;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -22,7 +22,7 @@ import java.util.Set;
  */
 public class PetService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     /** How the pet feels, worked out from the user's tasks and money. */
     public static final class Mood {
@@ -40,9 +40,27 @@ public class PetService {
         public String getReason() { return reason; }
     }
 
-    private final ShopDao shopDao = DaoFactory.get().shop();
-    private final TaskService taskService = new TaskService();
-    private final SettlementService settlementService = new SettlementService();
+    private final ShopDao shopDao;
+    private final TaskService taskService;
+    private final SettlementService settlementService;
+    private final TransactionRunner tx;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public PetService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public PetService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.tx = daos.transactions();
+        this.shopDao = daos.shop();
+        this.taskService = new TaskService(daos, session);
+        this.settlementService = new SettlementService(daos, session);
+    }
 
     /** Your pets with their names and outfits, oldest first. */
     public List<OwnedPet> getMyPets() throws SettlrException {
@@ -87,7 +105,7 @@ public class PetService {
                 }
             }
         }
-        Transaction.run("Could not save your pet. Please try again.", c -> {
+        tx.run("Could not save your pet. Please try again.", c -> {
             for (OwnedPet p : pets) {
                 shopDao.updatePet(c, userId, p);
             }
@@ -126,7 +144,8 @@ public class PetService {
 
     /** XP earned since Monday (tasks done and payments confirmed this week). */
     public int getXpThisWeek() throws SettlrException {
-        return shopDao.findEarnedSince(session.requireUser().getId(), DateTimeUtil.weekStart(LocalDate.now()));
+        return XpRules.earned(shopDao.findXpActivity(session.requireUser().getId(),
+                DateTimeUtil.weekStart(LocalDate.now())));
     }
 
 }

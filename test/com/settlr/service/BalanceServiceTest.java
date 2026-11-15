@@ -1,8 +1,6 @@
 package com.settlr.service;
 
-import com.settlr.dao.DaoFactory;
 import com.settlr.dao.memory.InMemoryDaoFactory;
-import com.settlr.dao.mysql.MySqlDaoFactory;
 import com.settlr.model.Balance;
 import com.settlr.model.Expense;
 import com.settlr.model.ExpenseCategory;
@@ -26,8 +24,8 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 
 /**
- * Checks who owes whom after netting. Runs on the in-memory DAOs (InMemoryDaoFactory), so no
- * MySQL is needed: the same BalanceService code, a different family of DAOs.
+ * Checks who owes whom after netting. Runs on the in-memory DAOs (InMemoryDaoFactory), passed to
+ * BalanceService's constructor, so no MySQL is needed: the same code, a different family of DAOs.
  */
 public class BalanceServiceTest {
 
@@ -40,7 +38,6 @@ public class BalanceServiceTest {
     @Before
     public void setUp() throws Exception {
         db = new InMemoryDaoFactory();
-        DaoFactory.use(db);
         for (User u : Arrays.asList(ana, ben, carlo)) {
             db.users().insert(u);
             db.memberships().insert(new Membership(HOUSEHOLD, u.getId(), Role.MEMBER, LocalDateTime.now(), true));
@@ -51,7 +48,6 @@ public class BalanceServiceTest {
     @After
     public void tearDown() {
         Session.getInstance().end();
-        DaoFactory.use(new MySqlDaoFactory()); // back to normal for any other test
     }
 
     @Test
@@ -59,7 +55,7 @@ public class BalanceServiceTest {
         addExpense(HOUSEHOLD, "Pizza", "300.00", ana, ana, ben, carlo); // Ben and Carlo owe Ana 100 each
         addExpense(HOUSEHOLD, "Water", "90.00", ben, ana, ben, carlo);  // Ana and Carlo owe Ben 30 each
 
-        BalanceService balances = new BalanceService();
+        BalanceService balances = balances();
 
         assertEquals(money("70.00"), balanceWith(balances.getMyBalances(), ben));   // 100 - 30
         assertEquals(money("100.00"), balanceWith(balances.getMyBalances(), carlo));
@@ -73,7 +69,7 @@ public class BalanceServiceTest {
         addExpense(HOUSEHOLD, "Water", "90.00", ben, ana, ben, carlo);
 
         logIn(ben);
-        BalanceService balances = new BalanceService();
+        BalanceService balances = balances();
 
         assertEquals(money("-70.00"), balanceWith(balances.getMyBalances(), ana));
         assertEquals(money("30.00"), balanceWith(balances.getMyBalances(), carlo));
@@ -87,7 +83,7 @@ public class BalanceServiceTest {
         bensShare.setSettledAt(LocalDateTime.now()); // Ben paid his part
         db.shares().update(bensShare);
 
-        BalanceService balances = new BalanceService();
+        BalanceService balances = balances();
 
         assertEquals(money("0"), balanceWith(balances.getMyBalances(), ben));
         assertEquals(money("100.00"), balances.getTotalOwedToMe()); // only Carlo now
@@ -97,20 +93,25 @@ public class BalanceServiceTest {
     public void expensesOfAnotherHouseholdDontCount() throws Exception {
         addExpense(2, "Someone else's rent", "500.00", ana, ana, ben);
 
-        assertEquals(money("0"), new BalanceService().getTotalOwedToMe());
+        assertEquals(money("0"), balances().getTotalOwedToMe());
     }
 
     @Test
     public void oddCentavosStillAddUp() throws Exception {
         addExpense(HOUSEHOLD, "Snacks", "100.00", ana, ana, ben, carlo); // 33.34 / 33.33 / 33.33
 
-        BalanceService balances = new BalanceService();
+        BalanceService balances = balances();
 
         assertEquals(money("33.33"), balanceWith(balances.getMyBalances(), ben));
         assertEquals(money("66.66"), balances.getTotalOwedToMe()); // Ana's own 33.34 is already paid
     }
 
     // ---------- helpers ----------
+
+    /** The service under test, given the in-memory DAOs through its constructor (dependency injection). */
+    private BalanceService balances() {
+        return new BalanceService(db, Session.getInstance());
+    }
 
     /** Saves an expense and its equal split straight into the in-memory DAOs. */
     private List<ExpenseShare> addExpense(int householdId, String title, String amount, User paidBy, User... among)

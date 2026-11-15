@@ -2,9 +2,7 @@ package com.settlr.ui.screens;
 
 import com.settlr.exception.SettlrException;
 import com.settlr.model.Household;
-import com.settlr.model.RecurringTask;
 import com.settlr.model.SwapRequest;
-import com.settlr.model.SwapStatus;
 import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
@@ -12,16 +10,14 @@ import com.settlr.model.User;
 import com.settlr.service.HouseholdService;
 import com.settlr.service.SwapService;
 import com.settlr.service.TaskService;
+import com.settlr.ui.Background;
 import com.settlr.ui.BaseScreen;
 import com.settlr.ui.components.AttentionCard;
-import com.settlr.ui.components.AvatarLabel;
-import com.settlr.ui.components.CheckCircle;
 import com.settlr.ui.components.GlassCard;
 import com.settlr.ui.components.ProgressBar;
 import com.settlr.ui.components.RoundedButton;
 import com.settlr.ui.components.SegmentedControl;
 import com.settlr.ui.components.SlimScrollBarUI;
-import com.settlr.ui.components.StatusBadge;
 import com.settlr.ui.theme.Theme;
 import com.settlr.util.DateTimeUtil;
 import com.settlr.util.Session;
@@ -31,7 +27,6 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.geom.RoundRectangle2D;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -64,7 +59,6 @@ public class TasksScreen extends BaseScreen {
     }
 
     static final String DOT = " \u00B7 ";
-    private static final Color DIVIDER = new Color(232, 217, 205, 40);
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
     private static final DateTimeFormatter WEEKDAY = DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH);
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
@@ -76,12 +70,10 @@ public class TasksScreen extends BaseScreen {
     private final SwapService swapService = new SwapService();
     private final HouseholdService householdService = new HouseholdService();
 
-    // what's loaded
-    private final Map<Integer, User> members = new LinkedHashMap<>();
-    private final Map<Integer, Task> tasks = new HashMap<>();
-    private final Map<Integer, SwapRequest> myPendingSwaps = new HashMap<>(); // by assignment id
-    private List<TaskAssignment> week = new ArrayList<>();
-    private List<TaskAssignment> overdue = new ArrayList<>();
+    private final Background background = new Background(); // loads off the Swing thread
+
+    // what's loaded (replaced as a whole by each load)
+    private TaskWeek data = TaskWeek.empty();
 
     // what's picked
     private int weekOffset;          // 0 = this week, -1 = last week, 1 = next week
@@ -228,45 +220,36 @@ public class TasksScreen extends BaseScreen {
         crumb.setText((h == null ? "" : h.getName() + DOT) + "Tasks");
         weekOffset = 0;
         showMessage(" ", false);
+        if (isNewUser()) {
+            show(TaskWeek.empty()); // don't show the last user's week while this one loads
+            rows.removeAll();
+        }
         reload();
     }
 
-    /** Reloads everything without clearing the message line, so a result message survives. */
+    /**
+     * Loads the picked week in the background, then fills the page. The message line isn't
+     * cleared, so a result message ("Added ...") survives the reload.
+     */
     void reload() {
-        try {
-            Household h = Session.getInstance().getCurrentHousehold();
-            members.clear();
-            if (h != null) {
-                for (User u : householdService.getMembers()) {
-                    members.put(u.getId(), u);
-                }
-            }
-            tasks.clear();
-            for (Task t : taskService.getActiveTasks()) {
-                tasks.put(t.getId(), t);
-            }
-            week = new ArrayList<>(taskService.getWeek(weekStart()));
-            week.addAll(taskService.getPlannedTurns(weekStart())); // turns of repeating tasks not created yet
-            week.sort(Comparator.comparing(TaskAssignment::getDueAt));
-            overdue = weekOffset == 0 ? taskService.getOverdue() : new ArrayList<>();
-            myPendingSwaps.clear();
-            for (SwapRequest s : swapService.getOutgoing()) {
-                if (s.getStatus() == SwapStatus.PENDING) {
-                    myPendingSwaps.put(s.getAssignmentId(), s);
-                }
-            }
-            loadAttention();
-        } catch (SettlrException e) {
-            week = new ArrayList<>();
-            overdue = new ArrayList<>();
-            attentionCard.setVisible(false);
-            showMessage(e.getMessage(), true);
-        }
         LocalDate start = weekStart();
+        boolean currentWeek = weekOffset == 0;
         weekTitle.setText(weekOffset == 0 ? "This week" : weekOffset == -1 ? "Last week"
                 : weekOffset == 1 ? "Next week" : "Week of " + DAY.format(start));
         weekRange.setText(DAY.format(start) + " \u2013 " + (start.plusDays(6).getMonth() == start.getMonth()
                 ? String.valueOf(start.plusDays(6).getDayOfMonth()) : DAY.format(start.plusDays(6))));
+        background.load(() -> TaskWeek.load(taskService, swapService, householdService, start, currentWeek),
+                loaded -> show(loaded),
+                e -> {
+                    show(TaskWeek.empty());
+                    showMessage(e.getMessage(), true);
+                });
+    }
+
+    /** Fills the page from what was loaded. Runs on the Swing thread. */
+    private void show(TaskWeek loaded) {
+        data = loaded;
+        loadAttention();
         showRows();
         fillYourWeek();
         fillHousehold();
@@ -284,18 +267,25 @@ public class TasksScreen extends BaseScreen {
         return (int) ChronoUnit.WEEKS.between(currentWeek, taskWeek);
     }
 
-    private void loadAttention() throws SettlrException {
+    private void loadAttention() {
         attentionCard.removeAll();
-        List<SwapRequest> waiting = new ArrayList<>();
-        for (SwapRequest s : swapService.getIncoming()) {
-            if (s.getStatus() == SwapStatus.PENDING && s.getAssignmentDueAt().isAfter(LocalDateTime.now())) {
-                waiting.add(s);
-            }
-        }
+        List<SwapRequest> waiting = data.waitingForMe;
         for (int i = 0; i < waiting.size(); i++) {
-            attentionCard.add(left(new SwapRow(waiting.get(i), i < waiting.size() - 1)));
+            attentionCard.add(left(swapRow(waiting.get(i), i < waiting.size() - 1)));
         }
         attentionCard.setVisible(!waiting.isEmpty());
+    }
+
+    /** Decline and Accept each ask first with a popup, then answer the swap and reload. */
+    private SwapRequestRow swapRow(SwapRequest s, boolean divider) {
+        String from = s.getFromUserName();
+        String what = s.getTaskTitle() + ", due " + when(s.getAssignmentDueAt());
+        return new SwapRequestRow(s, data.members.get(s.getFromUser()), divider,
+                () -> askThen(new ConfirmDialog("Decline " + from + "'s swap?", what).avatar(from), "Decline",
+                        () -> swapService.decline(s.getId()),
+                        "Declined. " + s.getTaskTitle() + " stays with " + from + "."),
+                () -> askThen(new ConfirmDialog("Take " + from + "'s turn?", what).avatar(from), "Accept swap",
+                        () -> swapService.accept(s.getId()), s.getTaskTitle() + " is yours now."));
     }
 
     // =====================================================================
@@ -309,7 +299,7 @@ public class TasksScreen extends BaseScreen {
         LocalDateTime now = LocalDateTime.now();
 
         List<TaskAssignment> overdueShown = new ArrayList<>();
-        for (TaskAssignment a : overdue) {
+        for (TaskAssignment a : data.overdue) {
             if (everyone || a.getAssigneeId() == me) {
                 overdueShown.add(a);
             }
@@ -322,7 +312,7 @@ public class TasksScreen extends BaseScreen {
             groups.put("Later this week", new ArrayList<>());
             groups.put("Earlier this week", new ArrayList<>());
         }
-        for (TaskAssignment a : week) {
+        for (TaskAssignment a : data.week) {
             if (!everyone && a.getAssigneeId() != me) {
                 continue;
             }
@@ -375,7 +365,24 @@ public class TasksScreen extends BaseScreen {
         head.setBorder(new EmptyBorder(14, 0, 2, 0));
         rows.add(left(head));
         for (int i = 0; i < list.size(); i++) {
-            rows.add(left(new TaskRow(list.get(i), i < list.size() - 1)));
+            rows.add(left(new TaskRow(list.get(i), data, everyone, weekOffset != 0, canComplete(list.get(i)),
+                    i < list.size() - 1, rowActions)));
+        }
+    }
+
+    /** What a task row's tick, Swap and click do. */
+    private final TaskRow.Actions rowActions = new TaskRow.Actions() {
+        @Override public void complete(TaskAssignment a) { TasksScreen.this.complete(a); }
+        @Override public void swap(TaskAssignment a) { openSwap(a); }
+        @Override public void details(TaskAssignment a) { openDetails(a); }
+    };
+
+    /** Whether the logged-in user may tick this turn off (asks TaskService; no database work). */
+    private boolean canComplete(TaskAssignment a) {
+        try {
+            return taskService.canComplete(a);
+        } catch (SettlrException e) {
+            return false;
         }
     }
 
@@ -396,7 +403,7 @@ public class TasksScreen extends BaseScreen {
         yourWeekCard.removeAll();
         int me = me().getId();
         int total = 0, done = 0, earned = 0, left = 0;
-        for (TaskAssignment a : week) {
+        for (TaskAssignment a : data.week) {
             if (a.getAssigneeId() != me) {
                 continue;
             }
@@ -409,7 +416,7 @@ public class TasksScreen extends BaseScreen {
             }
         }
         int late = 0;
-        for (TaskAssignment a : overdue) {
+        for (TaskAssignment a : data.overdue) {
             if (a.getAssigneeId() == me) {
                 late++;
             }
@@ -453,10 +460,10 @@ public class TasksScreen extends BaseScreen {
         householdCard.add(Box.createVerticalStrut(4));
 
         Map<Integer, int[]> counts = new HashMap<>(); // user id -> {done, total}
-        for (User u : members.values()) {
+        for (User u : data.members.values()) {
             counts.put(u.getId(), new int[2]);
         }
-        for (TaskAssignment a : week) {
+        for (TaskAssignment a : data.week) {
             int[] c = counts.get(a.getAssigneeId());
             if (c != null) {
                 c[1]++;
@@ -465,13 +472,13 @@ public class TasksScreen extends BaseScreen {
                 }
             }
         }
-        List<User> order = new ArrayList<>(members.values());
+        List<User> order = new ArrayList<>(data.members.values());
         order.sort(Comparator.<User>comparingDouble(u -> {
             int[] c = counts.get(u.getId());
             return c[1] == 0 ? -1 : -(double) c[0] / c[1];
         }).thenComparing(User::getDisplayName, String.CASE_INSENSITIVE_ORDER));
         for (User u : order) {
-            householdCard.add(left(new MemberProgress(u, counts.get(u.getId()))));
+            householdCard.add(left(new MemberProgressRow(u, counts.get(u.getId()), u.getId() == me().getId())));
         }
     }
 
@@ -495,7 +502,7 @@ public class TasksScreen extends BaseScreen {
     }
 
     private void openDetails(TaskAssignment a) {
-        TaskDetailDialog.open(this, a, tasks.get(a.getTaskId()), myPendingSwaps.get(a.getId()), new TaskDetailDialog.Listener() {
+        TaskDetailDialog.open(this, a, data.tasks.get(a.getTaskId()), data.myPendingSwaps.get(a.getId()), new TaskDetailDialog.Listener() {
             @Override public void completed() { complete(a); }
             @Override public void askSwap() { openSwap(a); }
             @Override public void archived(String title) {
@@ -507,13 +514,13 @@ public class TasksScreen extends BaseScreen {
 
     private void openSwap(TaskAssignment a) {
         Map<Integer, Integer> left = new HashMap<>(); // pending tasks this week per person
-        for (TaskAssignment x : week) {
+        for (TaskAssignment x : data.week) {
             if (x.getStatus() == TaskStatus.PENDING) {
                 left.merge(x.getAssigneeId(), 1, Integer::sum);
             }
         }
         List<User> others = new ArrayList<>();
-        for (User u : members.values()) {
+        for (User u : data.members.values()) {
             if (u.getId() != me().getId()) {
                 others.add(u);
             }
@@ -551,7 +558,7 @@ public class TasksScreen extends BaseScreen {
         return a.getId() == 0;
     }
 
-    private static boolean isDone(TaskAssignment a) {
+    static boolean isDone(TaskAssignment a) {
         return a.getStatus() == TaskStatus.DONE || a.getStatus() == TaskStatus.DONE_LATE;
     }
 
@@ -577,18 +584,18 @@ public class TasksScreen extends BaseScreen {
 
     /** "Daily", "Weekly", "Monthly" or "One-time". */
     static String repeats(Task t) {
-        if (t instanceof RecurringTask) {
-            switch (((RecurringTask) t).getRecurrence()) {
-                case DAILY:  return "Daily";
-                case WEEKLY: return "Weekly";
-                default:     return "Monthly";
-            }
+        if (!t.repeats()) {
+            return "One-time";
         }
-        return "One-time";
+        switch (t.getRecurrence()) {
+            case DAILY:  return "Daily";
+            case WEEKLY: return "Weekly";
+            default:     return "Monthly";
+        }
     }
 
     static boolean rotates(Task t) {
-        return t instanceof RecurringTask && ((RecurringTask) t).isRotates();
+        return t.isRotates();
     }
 
     static String points(int p) {
@@ -628,23 +635,6 @@ public class TasksScreen extends BaseScreen {
         return p;
     }
 
-    private static JPanel centeredVertically(JComponent c) {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setOpaque(false);
-        p.add(c);
-        return p;
-    }
-
-    private static JPanel leftCentered(JComponent c) {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setOpaque(false);
-        GridBagConstraints gc = new GridBagConstraints();
-        gc.weightx = 1;
-        gc.anchor = GridBagConstraints.WEST;
-        p.add(c, gc);
-        return p;
-    }
-
     /** Lets the GridBag weights decide the column widths instead of the content. */
     private static JComponent narrow(JComponent c) {
         JPanel p = new JPanel(new BorderLayout()) {
@@ -656,196 +646,5 @@ public class TasksScreen extends BaseScreen {
         p.setOpaque(false);
         p.add(c, BorderLayout.CENTER);
         return p;
-    }
-
-    // =====================================================================
-    //  Pieces of the page
-    // =====================================================================
-
-    /** One task: tick circle, (avatar), title + points, details, when, and Swap. Click it for details. */
-    private class TaskRow extends JPanel {
-        private final boolean divider;
-        private boolean hover;
-
-        TaskRow(TaskAssignment a, boolean divider) {
-            super(new BorderLayout(12, 0));
-            this.divider = divider;
-            setOpaque(false);
-            setBorder(new EmptyBorder(8, 0, 8, 0));
-            int me = me().getId();
-            Task task = tasks.get(a.getTaskId());
-            boolean mine = a.getAssigneeId() == me;
-            boolean pastDue = a.getStatus() == TaskStatus.PENDING && a.getDueAt().isBefore(LocalDateTime.now());
-            boolean canTick;
-            try {
-                canTick = taskService.canComplete(a);
-            } catch (SettlrException e) {
-                canTick = false;
-            }
-
-            // left: tick + (avatar)
-            CheckCircle check = new CheckCircle(a.getStatus(), pastDue, canTick, () -> complete(a));
-            JPanel lefty = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            lefty.setOpaque(false);
-            lefty.add(check);
-            if (everyone) {
-                lefty.add(Box.createHorizontalStrut(10));
-                User u = members.get(a.getAssigneeId());
-                lefty.add(u != null ? new AvatarLabel(u, 26) : new AvatarLabel(a.getAssigneeName(), 26));
-            }
-
-            // middle: title, points, details
-            JPanel title = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            title.setOpaque(false);
-            boolean finished = isDone(a);
-            String t = a.getTaskTitle();
-            title.add(label(finished ? "<html><s>" + t + "</s></html>" : t, Font.BOLD, 14,
-                    finished ? Theme.MUTED_TEXT : Theme.TEXT));
-            title.add(Box.createHorizontalStrut(8));
-            title.add(new StatusBadge(points(a.getTaskPoints()), StatusBadge.Kind.PENDING));
-
-            List<String> bits = new ArrayList<>();
-            if (everyone) {
-                bits.add(mine ? "You" : a.getAssigneeName());
-            }
-            if (isPlanned(a)) {
-                bits.add("Coming up");
-            }
-            if (task != null) {
-                bits.add(repeats(task) + (rotates(task) ? ", turns rotate" : ""));
-                if (!everyone && task.getDescription() != null && task.getDescription().length() <= 32) {
-                    bits.add(task.getDescription());
-                }
-            }
-            JPanel text = vertical();
-            text.add(left(title));
-            text.add(Box.createVerticalStrut(2));
-            text.add(left(label(String.join(DOT, bits), Font.PLAIN, 11, Theme.MUTED_TEXT)));
-
-            // right: when / status, and Swap
-            JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
-            right.setOpaque(false);
-            right.add(statusLabel(a, pastDue));
-            SwapRequest asked = myPendingSwaps.get(a.getId());
-            if (asked != null) {
-                right.add(new StatusBadge("Asked " + asked.getToUserName(), StatusBadge.Kind.PENDING));
-            } else if (mine && !isPlanned(a) && a.getStatus() == TaskStatus.PENDING && !pastDue) {
-                RoundedButton swap = smallButton("Swap");
-                swap.addActionListener(e -> openSwap(a));
-                right.add(swap);
-            }
-
-            add(centeredVertically(lefty), BorderLayout.WEST);
-            add(leftCentered(text), BorderLayout.CENTER);
-            add(centeredVertically(right), BorderLayout.EAST);
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height));
-
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            setToolTipText("Details");
-            addMouseListener(new MouseAdapter() {
-                @Override public void mouseClicked(MouseEvent e) { openDetails(a); }
-                @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
-                @Override public void mouseExited(MouseEvent e) { hover = false; repaint(); }
-            });
-        }
-
-        private JLabel statusLabel(TaskAssignment a, boolean pastDue) {
-            switch (a.getStatus()) {
-                case DONE:      return label("Done", Font.PLAIN, 12, Theme.MINT);
-                case DONE_LATE: return label("Done late", Font.PLAIN, 12, Theme.AMBER);
-                case MISSED:    return label("Missed", Font.PLAIN, 12, Theme.DANGER);
-                default:
-                    if (pastDue) {
-                        LocalDate d = a.getDueAt().toLocalDate();
-                        return label(d.equals(LocalDate.now()) ? time(a.getDueAt()) : day(d), Font.PLAIN, 12,
-                                Theme.DANGER);
-                    }
-                    LocalDate d = a.getDueAt().toLocalDate();
-                    boolean soon = d.equals(LocalDate.now()) || d.equals(LocalDate.now().plusDays(1)) || weekOffset != 0;
-                    return label(soon ? time(a.getDueAt()) : when(a.getDueAt()), Font.PLAIN, 12, Theme.TEXT);
-            }
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            if (hover) {
-                g2.setColor(new Color(255, 255, 255, 10));
-                g2.fill(new RoundRectangle2D.Float(-8, 2, getWidth() + 16, getHeight() - 4, 14, 14));
-            }
-            if (divider) {
-                g2.setColor(DIVIDER);
-                g2.fillRect(0, getHeight() - 1, getWidth(), 1);
-            }
-            g2.dispose();
-        }
-    }
-
-    /** "Carlo ... 3/3" with a bar under the name. */
-    private class MemberProgress extends JPanel {
-        MemberProgress(User u, int[] count) {
-            super(new BorderLayout(10, 0));
-            setOpaque(false);
-            setBorder(new EmptyBorder(6, 0, 6, 0));
-            boolean me = u.getId() == me().getId();
-            JPanel top = new JPanel(new BorderLayout());
-            top.setOpaque(false);
-            String name = me ? "You" : u.getDisplayName();
-            boolean all = count[1] > 0 && count[0] == count[1];
-            top.add(label(name + (all ? "  \u2713" : ""), Font.BOLD, 13, all ? Theme.MINT : Theme.TEXT),
-                    BorderLayout.WEST);
-            top.add(label(count[1] == 0 ? "no tasks" : count[0] + "/" + count[1], Font.PLAIN, 12, Theme.MUTED_TEXT),
-                    BorderLayout.EAST);
-            JPanel text = vertical();
-            text.add(left(fitHeight(top)));
-            text.add(Box.createVerticalStrut(5));
-            text.add(left(new ProgressBar(count[0], count[1], 5)));
-            add(centeredVertically(new AvatarLabel(u, 26)), BorderLayout.WEST);
-            add(text, BorderLayout.CENTER);
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height));
-        }
-    }
-
-    /** "Carlo asked you to take Wash Dishes / Tue \u00B7 8:00 PM \u00B7 1h ago   Decline [Accept]". */
-    private class SwapRow extends JPanel {
-        SwapRow(SwapRequest s, boolean divider) {
-            super(new BorderLayout(12, 0));
-            setOpaque(false);
-            setBorder(new EmptyBorder(9, 0, 9, 0));
-            String from = s.getFromUserName();
-            JPanel text = vertical();
-            text.add(left(label(from + " asked you to take " + s.getTaskTitle(), Font.BOLD, 14, Theme.TEXT)));
-            text.add(Box.createVerticalStrut(2));
-            text.add(left(label(when(s.getAssignmentDueAt()) + DOT + DateTimeUtil.timeAgo(s.getCreatedAt()),
-                    Font.PLAIN, 11, Theme.MUTED_TEXT)));
-
-            String what = s.getTaskTitle() + ", due " + when(s.getAssignmentDueAt());
-            JLabel decline = link("Decline", () -> askThen(new ConfirmDialog("Decline " + from + "'s swap?", what)
-                            .avatar(from), "Decline",
-                    () -> swapService.decline(s.getId()), "Declined. " + s.getTaskTitle() + " stays with " + from + "."));
-            RoundedButton accept = new RoundedButton("Accept");
-            accept.setArc(RoundedButton.PILL);
-            accept.setFont(Theme.font(Font.BOLD, 12));
-            accept.setMargin(new Insets(0, 0, 0, 0));
-            accept.setPreferredSize(new Dimension(84, 30));
-            accept.addActionListener(e -> askThen(new ConfirmDialog("Take " + from + "'s turn?", what).avatar(from),
-                    "Accept swap", () -> swapService.accept(s.getId()), s.getTaskTitle() + " is yours now."));
-            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 0));
-            actions.setOpaque(false);
-            actions.add(decline);
-            actions.add(accept);
-
-            User fromUser = members.get(s.getFromUser());
-            add(centeredVertically(fromUser != null ? new AvatarLabel(fromUser, 34) : new AvatarLabel(from, 34)),
-                    BorderLayout.WEST);
-            add(leftCentered(text), BorderLayout.CENTER);
-            add(centeredVertically(actions), BorderLayout.EAST);
-            if (divider) {
-                setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(0, 0, 1, 0, DIVIDER), new EmptyBorder(9, 0, 9, 0)));
-            }
-            setMaximumSize(new Dimension(Integer.MAX_VALUE, getPreferredSize().height));
-        }
     }
 }

@@ -10,17 +10,15 @@ import com.settlr.exception.PermissionDeniedException;
 import com.settlr.exception.SettlrException;
 import com.settlr.exception.ValidationException;
 import com.settlr.model.ActivityType;
-import com.settlr.model.Recurrence;
-import com.settlr.model.RecurringTask;
 import com.settlr.model.SwapRequest;
 import com.settlr.model.SwapStatus;
 import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
 import com.settlr.model.TaskStatus;
 import com.settlr.model.User;
-import com.settlr.util.Transaction;
 import com.settlr.util.DateTimeUtil;
 import com.settlr.util.Session;
+import com.settlr.util.TransactionRunner;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -35,18 +33,38 @@ import java.util.List;
  */
 public class TaskService {
 
-    private final Session session = Session.getInstance();
+    private final Session session;
 
     private static final String SAVE_FAILED = "Could not save your changes. Please try again.";
 
     /** Used to mean "every pending assignment": no task is due before this. */
     private static final LocalDateTime EARLIEST = LocalDateTime.of(2000, 1, 1, 0, 0);
 
-    private final TaskDao taskDao = DaoFactory.get().tasks();
-    private final TaskAssignmentDao assignmentDao = DaoFactory.get().assignments();
-    private final SwapRequestDao swapDao = DaoFactory.get().swaps();
-    private final MembershipDao membershipDao = DaoFactory.get().memberships();
-    private final ActivityService activityService = new ActivityService();
+    private final TaskDao taskDao;
+    private final TaskAssignmentDao assignmentDao;
+    private final SwapRequestDao swapDao;
+    private final MembershipDao membershipDao;
+    private final ActivityService activityService;
+    private final TransactionRunner tx;
+
+    /** Uses the app's MySQL DAOs and the logged-in Session. */
+    public TaskService() {
+        this(DaoFactory.get(), Session.getInstance());
+    }
+
+    /**
+     * Everything this service needs is passed in here (dependency injection), so a test can
+     * give it in-memory DAOs instead of MySQL.
+     */
+    public TaskService(DaoFactory daos, Session session) {
+        this.session = session;
+        this.tx = daos.transactions();
+        this.taskDao = daos.tasks();
+        this.assignmentDao = daos.assignments();
+        this.swapDao = daos.swaps();
+        this.membershipDao = daos.memberships();
+        this.activityService = new ActivityService(daos, session);
+    }
 
     /** One upcoming turn of a task: who does it and when. Read-only. */
     public static final class Turn {
@@ -72,7 +90,7 @@ public class TaskService {
 
         task.setHouseholdId(householdId);
         task.setCreatedBy(userId);
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             task.setId(taskDao.insert(c, task));
             assignmentDao.insertIfAbsent(c, new TaskAssignment(
                     task.getId(), task.getDefaultAssigneeId(), task.getFirstDueAt()));
@@ -92,13 +110,13 @@ public class TaskService {
         Task existing = loadOwnTask(task.getId());
         requireCanModify(existing);
         validateTask(task, existing.getHouseholdId());
-        if ((existing instanceof RecurringTask) != (task instanceof RecurringTask)) {
+        if (existing.repeats() != task.repeats()) {
             throw new ValidationException("A task cannot change between one-time and recurring.");
         }
 
         LocalDateTime now = LocalDateTime.now();
         task.setArchived(false);
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             taskDao.update(c, task);
             swapDao.deleteByTaskAfter(c, task.getId(), now);
             assignmentDao.deletePendingAfter(c, task.getId(), now);
@@ -115,7 +133,7 @@ public class TaskService {
         Task existing = loadOwnTask(taskId);
         requireCanModify(existing);
 
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             swapDao.deleteByTaskAfter(c, taskId, EARLIEST);
             assignmentDao.deletePendingAfter(c, taskId, EARLIEST);
             taskDao.delete(c, taskId);
@@ -128,7 +146,7 @@ public class TaskService {
         TaskAssignment a = assignmentDao.findById(assignmentId);
         requireInHousehold(a);
 
-        if (a.getAssigneeId() != userId && !Session.getInstance().isAdmin()) {
+        if (a.getAssigneeId() != userId && !session.isAdmin()) {
             throw new PermissionDeniedException("Only the assignee or an Admin can complete this task.");
         }
         if (a.getStatus() == TaskStatus.MISSED) {
@@ -141,7 +159,7 @@ public class TaskService {
         LocalDateTime now = LocalDateTime.now();
         a.markComplete(now);       // the DONE / DONE_LATE rule lives in the model
         SwapRequest swap = swapDao.findPendingForAssignment(assignmentId);
-        Transaction.run(SAVE_FAILED, c -> {
+        tx.run(SAVE_FAILED, c -> {
             assignmentDao.update(c, a);
             if (swap != null) {        // nobody can take a finished task, so its swap request ends too
                 swap.setStatus(SwapStatus.DECLINED);
@@ -212,13 +230,15 @@ public class TaskService {
         int assignee = from.getAssigneeId();
         LocalDateTime due = from.getDueAt();
         turns.add(new Turn(findMember(members, assignee, from.getAssigneeName()), due));
-        if (!(task instanceof RecurringTask) || members.isEmpty()) {
+        if (task == null || members.isEmpty()) {
             return turns;
         }
-        RecurringTask recurring = (RecurringTask) task;
         while (turns.size() < count) {
-            due = recurring.getNextDueDate(due);
-            assignee = CatchUpService.chooseAssignee(recurring, assignee, members);
+            due = task.getNextDueDate(due); // null when there are no more (a one-time task)
+            if (due == null) {
+                break;
+            }
+            assignee = task.nextAssignee(assignee, members);
             turns.add(new Turn(findMember(members, assignee, null), due));
         }
         return turns;
@@ -244,10 +264,9 @@ public class TaskService {
             return planned;
         }
         for (Task task : taskDao.findActiveByHousehold(householdId)) {
-            if (!(task instanceof RecurringTask)) {
-                continue;
+            if (!task.repeats()) {
+                continue; // a one-time task's only turn already exists
             }
-            RecurringTask recurring = (RecurringTask) task;
             TaskAssignment latest = assignmentDao.findLatestForTask(task.getId());
             if (latest == null) {
                 continue;
@@ -255,11 +274,11 @@ public class TaskService {
             LocalDateTime due = latest.getDueAt();
             int assignee = latest.getAssigneeId();
             while (true) {
-                due = recurring.getNextDueDate(due);
-                if (!due.isBefore(to)) {
+                due = task.getNextDueDate(due);
+                if (due == null || !due.isBefore(to)) {
                     break;
                 }
-                assignee = CatchUpService.chooseAssignee(recurring, assignee, members);
+                assignee = task.nextAssignee(assignee, members);
                 if (due.isBefore(from) || due.isBefore(now)) {
                     continue;
                 }
@@ -276,13 +295,13 @@ public class TaskService {
 
     /** True when the current user may edit or archive this task (its creator or an Admin). */
     public boolean canModify(Task task) throws SettlrException {
-        return task != null && (task.getCreatedBy() == session.requireUser().getId() || Session.getInstance().isAdmin());
+        return task != null && (task.getCreatedBy() == session.requireUser().getId() || session.isAdmin());
     }
 
     /** True when the current user may tick this assignment off (its assignee or an Admin). */
     public boolean canComplete(TaskAssignment a) throws SettlrException {
         return a.getId() > 0 && a.getStatus() == TaskStatus.PENDING
-                && (a.getAssigneeId() == session.requireUser().getId() || Session.getInstance().isAdmin());
+                && (a.getAssigneeId() == session.requireUser().getId() || session.isAdmin());
     }
 
     private static User findMember(List<User> members, int userId, String fallbackName) {
@@ -304,13 +323,10 @@ public class TaskService {
         }
         requireActiveMember(householdId, task.getDefaultAssigneeId());
 
-        // Monthly tasks must start on day 1-28 so every month has that day
-        // (same rule as recurring bills); Recurrence.next relies on it.
-        if (task instanceof RecurringTask) {
-            RecurringTask recurring = (RecurringTask) task;
-            if (recurring.getRecurrence() == Recurrence.MONTHLY && task.getFirstDueAt().getDayOfMonth() > 28) {
-                throw new ValidationException("Monthly tasks must start on day 1 to 28 of the month.");
-            }
+        try {
+            task.checkSchedule(); // each kind of task checks its own schedule (polymorphism)
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         }
     }
 
@@ -335,7 +351,7 @@ public class TaskService {
     /** Only the creator or an Admin may change or delete a task (3.2). */
     private void requireCanModify(Task task) throws SettlrException {
         boolean creator = task.getCreatedBy() == session.requireUser().getId();
-        if (!creator && !Session.getInstance().isAdmin()) {
+        if (!creator && !session.isAdmin()) {
             throw new PermissionDeniedException("Only the person who created this task or an Admin can change it.");
         }
     }
@@ -347,8 +363,6 @@ public class TaskService {
             throw new NotFoundException("That task could not be found.");
         }
     }
-
-    // ---- session -------------------------------------------------------
 
     // ---- helpers -------------------------------------------------------
 

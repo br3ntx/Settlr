@@ -20,4 +20,15 @@ public class OneTimeTask extends Task {
         }
         return getFirstDueAt().isAfter(after) ? getFirstDueAt() : null;
     }
+
+    @Override
+    public boolean repeats() {
+        return false;
+    }
+
+    /** A one-time task never repeats. */
+    @Override
+    public Recurrence getRecurrence() {
+        return null;
+    }
 }
