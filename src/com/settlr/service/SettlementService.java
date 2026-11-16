@@ -268,6 +268,46 @@ public class SettlementService {
         return owed;
     }
 
+    /**
+     * Members who owe someone money past its due date and haven't sent it yet, after both
+     * directions cancel out (the same rule as the "past due" warnings), A to Z. Used for the
+     * household pet's mood.
+     */
+    public List<User> getPastDueMembers() throws SettlrException {
+        int householdId = session.requireHouseholdId();
+        Context ctx = new Context(householdId);
+        List<User> members = membershipDao.findActiveMembers(householdId);
+        LocalDate today = LocalDate.now();
+        Set<User> late = new LinkedHashSet<>();
+        for (int i = 0; i < members.size(); i++) {
+            for (int j = i + 1; j < members.size(); j++) { // each pair once, both directions
+                User a = members.get(i);
+                User b = members.get(j);
+                List<ShareLine> aOwes = lines(a.getId(), b.getId(), ctx);
+                List<ShareLine> bOwes = lines(b.getId(), a.getId(), ctx);
+                int net = Person.sum(aOwes).compareTo(Person.sum(bOwes));
+                if (net > 0 && hasPastDue(aOwes, today)) {
+                    late.add(a);
+                } else if (net < 0 && hasPastDue(bOwes, today)) {
+                    late.add(b);
+                }
+            }
+        }
+        List<User> result = new ArrayList<>(late);
+        result.sort(Comparator.comparing(User::getDisplayName, String.CASE_INSENSITIVE_ORDER));
+        return result;
+    }
+
+    /** True when one of these shares was due before today and nothing has been sent for it. */
+    private static boolean hasPastDue(List<ShareLine> lines, LocalDate today) {
+        for (ShareLine line : lines) {
+            if (!line.isPaymentPending() && line.getDueDate().isBefore(today)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Settle ups the current user has to confirm or reject, oldest first. */
     public List<Incoming> getWaitingForMe() throws SettlrException {
         User me = session.requireUser();

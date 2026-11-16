@@ -20,8 +20,9 @@ import java.util.Set;
 
 /**
  * The Shop's rules: what things cost, buying a hat or accessory, and opening the pet egg.
- * XP is earned by finishing tasks and paying on time (see ShopDao), and spent here.
- * Every purchase checks the balance and saves in one transaction.
+ * XP, items and pets belong to the whole household: every member's finished tasks and on-time
+ * payments add to one pool (see ShopDao), any member can spend it here, and what they buy is
+ * everyone's. Every purchase checks the balance and saves in one transaction.
  */
 public class ShopService {
 
@@ -43,7 +44,7 @@ public class ShopService {
 
         public Pet getPet() { return pet; }
 
-        /** True when the user already had this pet; they got ShopCatalog.DUPLICATE_REFUND XP back. */
+        /** True when the household already had this pet; it got ShopCatalog.DUPLICATE_REFUND XP back. */
         public boolean isDuplicate() { return duplicate; }
 
         public int getBalanceAfter() { return balanceAfter; }
@@ -73,20 +74,20 @@ public class ShopService {
         this.random = random;
     }
 
-    /** The current user's XP: earned (XpRules) plus what they got back, minus what they spent. */
+    /** The household's XP: earned by everyone (XpRules) plus what it got back, minus what it spent. */
     public int getBalance() throws SettlrException {
-        int userId = session.requireUser().getId();
-        return XpRules.balance(shopDao.findXpActivity(userId, null), shopDao.findXpAdjustments(userId));
+        int householdId = session.requireHouseholdId();
+        return XpRules.balance(shopDao.findXpActivity(householdId, null), shopDao.findXpAdjustments(householdId));
     }
 
-    /** The same balance, read inside a transaction (after lockUser, so nothing changes it meanwhile). */
-    private int balanceIn(Connection c, int userId) throws SettlrException {
-        return XpRules.balance(shopDao.findXpActivity(c, userId), shopDao.findXpAdjustments(c, userId));
+    /** The same balance, read inside a transaction (after lockHousehold, so nothing changes it meanwhile). */
+    private int balanceIn(Connection c, int householdId) throws SettlrException {
+        return XpRules.balance(shopDao.findXpActivity(c, householdId), shopDao.findXpAdjustments(c, householdId));
     }
 
-    /** Codes of the hats and pets the current user owns. */
+    /** Codes of the hats and pets the household owns. */
     public Set<String> getOwnedCodes() throws SettlrException {
-        return shopDao.findOwnedCodes(session.requireUser().getId());
+        return shopDao.findOwnedCodes(session.requireHouseholdId());
     }
 
     /** Buys a hat or accessory. Returns the XP left. */
@@ -97,39 +98,41 @@ public class ShopService {
         }
         Cosmetic cosmetic = (Cosmetic) item;
         int userId = session.requireUser().getId();
+        int householdId = session.requireHouseholdId();
         return tx.get(SAVE_FAILED, c -> {
-            shopDao.lockUser(c, userId);
-            if (shopDao.findOwnedCodes(c, userId).contains(cosmetic.getCode())) {
-                throw new ValidationException("You already have the " + cosmetic.getName() + ".");
+            shopDao.lockHousehold(c, householdId);
+            if (shopDao.findOwnedCodes(c, householdId).contains(cosmetic.getCode())) {
+                throw new ValidationException("Your household already has the " + cosmetic.getName() + ".");
             }
-            int balance = balanceIn(c, userId);
+            int balance = balanceIn(c, householdId);
             requireEnough(balance, cosmetic.getPrice());
-            shopDao.insertTransaction(c, userId, -cosmetic.getPrice(), "Bought " + cosmetic.getName());
-            shopDao.insertOwned(c, userId, cosmetic.getCode());
+            shopDao.insertTransaction(c, householdId, userId, -cosmetic.getPrice(), "Bought " + cosmetic.getName());
+            shopDao.insertOwned(c, householdId, cosmetic.getCode());
             return balance - cosmetic.getPrice();
         });
     }
 
     /**
      * Hatches a pet egg: picks a rarity by its weight, then a pet of that rarity.
-     * A pet you already have gives half the price back instead.
+     * A pet the household already has gives half the price back instead.
      */
     public HatchResult hatchEgg() throws SettlrException {
         int userId = session.requireUser().getId();
+        int householdId = session.requireHouseholdId();
         Pet pet = rollPet();
         return tx.get(SAVE_FAILED, c -> {
-            shopDao.lockUser(c, userId);
-            int balance = balanceIn(c, userId);
+            shopDao.lockHousehold(c, householdId);
+            int balance = balanceIn(c, householdId);
             requireEnough(balance, ShopCatalog.EGG_PRICE);
-            shopDao.insertTransaction(c, userId, -ShopCatalog.EGG_PRICE, "Hatched a pet egg");
-            boolean duplicate = shopDao.findOwnedCodes(c, userId).contains(pet.getCode());
+            shopDao.insertTransaction(c, householdId, userId, -ShopCatalog.EGG_PRICE, "Hatched a pet egg");
+            boolean duplicate = shopDao.findOwnedCodes(c, householdId).contains(pet.getCode());
             int after = balance - ShopCatalog.EGG_PRICE;
             if (duplicate) {
-                shopDao.insertTransaction(c, userId, ShopCatalog.DUPLICATE_REFUND,
+                shopDao.insertTransaction(c, householdId, userId, ShopCatalog.DUPLICATE_REFUND,
                         "Already had the " + pet.getName());
                 after += ShopCatalog.DUPLICATE_REFUND;
             } else {
-                shopDao.insertOwned(c, userId, pet.getCode());
+                shopDao.insertOwned(c, householdId, pet.getCode());
             }
             return new HatchResult(pet, duplicate, after);
         });
@@ -175,7 +178,7 @@ public class ShopService {
 
     private static void requireEnough(int balance, int price) throws ValidationException {
         if (balance < price) {
-            throw new ValidationException("You need " + (price - balance) + " more XP.");
+            throw new ValidationException("Your household needs " + (price - balance) + " more XP.");
         }
     }
 

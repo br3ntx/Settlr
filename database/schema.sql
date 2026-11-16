@@ -10,8 +10,7 @@ CREATE TABLE users (
     avatar_path    VARCHAR(255) NULL,      -- profile picture under uploads/avatars, NULL = initials
     pay_method     ENUM('GCASH','MAYA','BANK','CASH') NULL,  -- "How to pay me", NULL = not set
     pay_number     VARCHAR(40)  NULL,      -- GCash/Maya number or "BPI 1234 5678 90"
-    pay_name       VARCHAR(60)  NULL,      -- account name
-    active_pet     VARCHAR(30)  NULL       -- the pet shown on Home (an item_code in owned_items), NULL = first pet
+    pay_name       VARCHAR(60)  NULL       -- account name
 );
 
 CREATE TABLE households (
@@ -20,6 +19,7 @@ CREATE TABLE households (
     invite_code       CHAR(6)     NOT NULL UNIQUE,
     created_by        INT         NOT NULL,
     created_at        DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    active_pet        VARCHAR(30) NULL,  -- the household's pet shown on Home (an item_code in owned_items), NULL = first pet
     FOREIGN KEY (created_by) REFERENCES users(user_id)
 );
 
@@ -179,29 +179,32 @@ CREATE TABLE activity_log (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
--- Shop: hats and accessories bought with XP, and pets from the pet egg.
--- What each item is (name, price, rarity) lives in Java (ShopCatalog); this only records who owns what.
+-- Shop: hats and accessories bought with XP, and pets from the pet egg. They belong to the whole
+-- household: everyone sees the same pet. What each item is (name, price, rarity) lives in Java
+-- (ShopCatalog); this only records which household owns what.
 CREATE TABLE owned_items (
-    user_id      INT         NOT NULL,
-    item_code    VARCHAR(30) NOT NULL,  -- e.g. 'HAT_CROWN' or 'PET_BUNNY'
+    household_id INT         NOT NULL,
+    item_code    VARCHAR(30) NOT NULL,  -- e.g. 'HAT_CROWN' or 'PET_DOG'
     acquired_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- Only used on pet rows: the pet's name and what it wears (item codes), NULL = default / nothing
     pet_name     VARCHAR(20) NULL,
     hat          VARCHAR(30) NULL,      -- anything on the head: a hat or the bow
     glasses      VARCHAR(30) NULL,
     neck         VARCHAR(30) NULL,      -- no longer used: the Neck items were taken out of the Shop
-    PRIMARY KEY (user_id, item_code),
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    PRIMARY KEY (household_id, item_code),
+    FOREIGN KEY (household_id) REFERENCES households(household_id)
 );
 
--- XP spent (negative) and given back (positive). XP earned is worked out from finished
--- tasks and on-time payments, so balance = earned + SUM(amount).
+-- XP the household spent (negative) and got back (positive), and who did it. XP earned is worked
+-- out from the household's finished tasks and on-time payments, so balance = earned + SUM(amount).
 CREATE TABLE xp_transactions (
-    tx_id       INT AUTO_INCREMENT PRIMARY KEY,
-    user_id     INT          NOT NULL,
-    amount      INT          NOT NULL,
-    reason      VARCHAR(80)  NOT NULL,
-    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX (user_id),
+    tx_id         INT AUTO_INCREMENT PRIMARY KEY,
+    household_id  INT          NOT NULL,  -- XP is pooled: the whole household spends it
+    user_id       INT          NOT NULL,  -- who bought or hatched
+    amount        INT          NOT NULL,
+    reason        VARCHAR(80)  NOT NULL,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX (household_id),
+    FOREIGN KEY (household_id) REFERENCES households(household_id),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );

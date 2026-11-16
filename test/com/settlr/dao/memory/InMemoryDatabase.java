@@ -7,6 +7,7 @@ import com.settlr.model.Household;
 import com.settlr.model.Membership;
 import com.settlr.model.Payment;
 import com.settlr.model.RecurringBill;
+import com.settlr.model.Settlement;
 import com.settlr.model.SwapRequest;
 import com.settlr.model.Task;
 import com.settlr.model.TaskAssignment;
@@ -31,8 +32,10 @@ class InMemoryDatabase {
     final List<SwapRequest> swaps = new ArrayList<>();
     final List<ActivityLog> activity = new ArrayList<>();
     final List<RecurringBill> bills = new ArrayList<>();
-    final Map<Integer, List<String>> owned = new HashMap<>();   // user id -> item codes
-    final List<int[]> xpTransactions = new ArrayList<>();       // {user id, amount}
+    final List<Settlement> settlements = new ArrayList<>();
+    final Map<Integer, Map<String, String[]>> owned = new HashMap<>(); // household id -> item code -> {pet name, hat, glasses}
+    final Map<Integer, String> activePets = new HashMap<>();           // household id -> shown pet
+    final List<int[]> xpTransactions = new ArrayList<>();              // {household id, user id, amount}
 
     private int nextId = 1;
 

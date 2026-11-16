@@ -33,7 +33,8 @@ import java.util.Set;
 import static com.settlr.ui.components.Ui.*;
 
 /**
- * Shop page (sidebar: Shop): your XP, the pet egg, and the hats and accessories you can buy.
+ * Shop page (sidebar: Shop): the household's shared XP, the pet egg, and the hats and accessories
+ * any member can buy. Whatever one member buys belongs to the whole household.
  * Click an item to buy it; the pet egg gives a random pet. Pets you own show under "Owned".
  * The rules (prices, balance checks, the odds) live in ShopService.
  */
@@ -71,7 +72,7 @@ public class ShopScreen extends BaseScreen {
         pillRow.add(xpPill);
         xpSide.add(right(pillRow));
         xpSide.add(Box.createVerticalStrut(6));
-        xpSide.add(right(label("Earn XP by finishing tasks and paying on time", Font.PLAIN, 12, Theme.MUTED_TEXT)));
+        xpSide.add(right(label("Shared XP: everyone's tasks and on-time payments count", Font.PLAIN, 12, Theme.MUTED_TEXT)));
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         header.add(titles, BorderLayout.WEST);
@@ -188,7 +189,7 @@ public class ShopScreen extends BaseScreen {
     private void buy(Cosmetic item) {
         ShopDialog.buy(this, item, balance, () -> {
             reload();
-            showMessage("You bought the " + item.getName() + ".", false);
+            showMessage("You bought the " + item.getName() + " for the household.", false);
         });
     }
 
@@ -244,7 +245,7 @@ public class ShopScreen extends BaseScreen {
                 odds.append(r.getLabel()).append(' ').append(ShopService.chanceOf(r)).append('%').append(DOT);
             }
         }
-        odds.append("a pet you already have gives ").append(ShopCatalog.DUPLICATE_REFUND).append(" XP back");
+        odds.append("a pet your household already has gives ").append(ShopCatalog.DUPLICATE_REFUND).append(" XP back");
         JPanel text = vertical();
         text.add(left(label("Pet egg", Font.BOLD, 20, Theme.TEXT)));
         text.add(Box.createVerticalStrut(6));

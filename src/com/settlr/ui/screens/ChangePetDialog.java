@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * "Change pet" (opens from Edit pet): your pets as tiles, pick one and press "Use ...".
+ * "Change pet" (opens from Edit pet): the household's pets as tiles, pick one and press "Use ...".
  * Each pet keeps its own name and outfit. Back, X or Esc goes back to Edit pet unchanged.
  * onDone gets the picked pet's code, or null when nothing changed.
  */
@@ -54,7 +54,7 @@ public final class ChangePetDialog extends ModalPopup {
         header.add(closeHolder, BorderLayout.EAST);
         fixed(header, 32);
         card.add(header);
-        JLabel sub = Ui.label("Your pet keeps its name and outfit when you switch back.",
+        JLabel sub = Ui.label("Each pet keeps its name and outfit when you switch back.",
                 Font.PLAIN, 12, Theme.MUTED_TEXT);
         card.add(Box.createVerticalStrut(2));
         fixed(sub, 18);
@@ -80,13 +80,13 @@ public final class ChangePetDialog extends ModalPopup {
         fixed(grid, rows * 136 + (rows - 1) * 12);
         card.add(grid);
 
-        boolean hasEveryPet = pets.size() >= ShopCatalog.pets().size();
-        JLabel more = Ui.label(hasEveryPet ? "You have every pet."
-                : "<html>Get more pets by hatching eggs in the "
-                + "<b><font color='#E8D9CD'>Shop</font></b>.</html>", Font.PLAIN, 12, Theme.MUTED_TEXT);
-        card.add(Box.createVerticalStrut(8));
-        fixed(more, 18);
-        card.add(more);
+        if (pets.size() < ShopCatalog.pets().size()) { // nothing to say once you have every pet
+            JLabel more = Ui.label("<html>Get more pets by hatching eggs in the "
+                    + "<b><font color='#E8D9CD'>Shop</font></b>.</html>", Font.PLAIN, 12, Theme.MUTED_TEXT);
+            card.add(Box.createVerticalStrut(8));
+            fixed(more, 18);
+            card.add(more);
+        }
 
         RoundedButton back = RoundedButton.outline("Back");
         for (RoundedButton b : new RoundedButton[] {back, use}) {

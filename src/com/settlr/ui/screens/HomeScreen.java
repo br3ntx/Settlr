@@ -39,10 +39,11 @@ import java.util.Set;
 import static com.settlr.ui.components.Ui.*;
 
 /**
- * Home page (sidebar: Home): your tasks on the left, your pet standing in the middle, and
+ * Home page (sidebar: Home): your tasks on the left, the household's pet standing in the middle, and
  * money on the right.
  *   - Tasks: overdue and due today (tick them off here), and a swap request waiting for you
- *   - Pet: your XP, the pet in its outfit, its mood, and Edit pet (or "No pet yet" with Go to Shop)
+ *   - Pet: the shared XP, the pet in its outfit, its mood, and Edit pet (or "No pet yet" with Go to Shop).
+ *     Every member sees the same pet, and its mood depends on the whole household.
  *   - Money: what you owe or are owed, payments waiting for you to confirm, and the next bill
  * Every number comes from the same services the Tasks, Expenses and Shop pages use.
  */
@@ -343,8 +344,8 @@ public class HomeScreen extends BaseScreen {
             pet = data.pet.get();
         } catch (DataAccessException e) {
             e.printStackTrace();
-            JLabel l = label("<html><div style='text-align:center;width:260px'>Can't load your pet. If MySQL is "
-                    + "running, run database/migrations/004_add_pet_outfits.sql once.</div></html>",
+            JLabel l = label("<html><div style='text-align:center;width:260px'>Can't load the household's pet. If MySQL "
+                    + "is running, run database/migrations/004 and 005 once each.</div></html>",
                     Font.PLAIN, 13, Theme.DANGER);
             area.add(Box.createVerticalGlue());
             area.add(center(l));
@@ -361,7 +362,7 @@ public class HomeScreen extends BaseScreen {
         area.add(center(pill));
         area.add(Box.createVerticalStrut(5));
         int thisWeek = pet.getXpThisWeek();
-        area.add(center(label((thisWeek > 0 ? "+" : "") + thisWeek + " XP this week", Font.PLAIN, 12,
+        area.add(center(label((thisWeek > 0 ? "+" : "") + thisWeek + " household XP this week", Font.PLAIN, 12,
                 Theme.MUTED_TEXT)));
 
         PetFigure figure = new PetFigure(Math.min(centerWidth, figureSize + 10), figureSize);
@@ -371,8 +372,8 @@ public class HomeScreen extends BaseScreen {
         if (shown == null) {
             area.add(center(label("No pet yet", Font.BOLD, 22, Theme.TEXT)));
             area.add(Box.createVerticalStrut(4));
-            area.add(left(fitHeight(lines("Hatch a pet egg in the Shop to get one."
-                            + (pet.canAffordEgg() ? " You have enough XP!" : ""),
+            area.add(left(fitHeight(lines("Hatch a pet egg in the Shop to get one for the household."
+                            + (pet.canAffordEgg() ? " There's enough XP!" : ""),
                     13, Theme.MUTED_TEXT, Math.min(centerWidth - 10, 300), true))));
             area.add(Box.createVerticalStrut(16));
             area.add(center(bigButton("Go to Shop", () -> Navigator.getInstance().show(Navigator.SHOP))));
@@ -409,7 +410,7 @@ public class HomeScreen extends BaseScreen {
         }
         PetEditDialog.open(this, pets, shownCode, owned, () -> {
             reload();
-            showMessage("Saved your pet.", false);
+            showMessage("Saved. Everyone in the household sees the same pet.", false);
         });
     }
 

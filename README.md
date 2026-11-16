@@ -24,10 +24,19 @@ in a state that shows off a feature (a swap request waiting, a payment to confir
 
 Reset again before every practice run and right before the defense.
 
+## Updating an existing database
+
+If your `settlr_db` was made before a change to `schema.sql`, run the new files in
+`database/migrations` once, in order, in Workbench. The latest is `005_shared_pets.sql`: it makes
+the pet, the Shop items and the XP belong to the whole household (everyone sees the same pet)
+and keeps what each household's members already had. Resetting with `reset-demo.bat` or loading
+`sandbox.sql` also works, but erases everything.
+
 ## Sandbox for exploring
 
-`database/sandbox.sql` is the same demo data, but every account also gets 10,000 XP and every pet,
-hat and accessory, so you can try everything in the Shop and Edit pet. Load it in Workbench
+`database/sandbox.sql` is the same demo data, but every household also gets 10,000 XP and every
+pet, hat and accessory, so you can try everything in the Shop and Edit pet. Pets, items and XP are
+shared by the household, so every Casa Mabini account sees the same pet. Load it in Workbench
 (File > Open SQL Script, then the lightning bolt). It erases `settlr_db` first, so run it again
 any time to start over. Use `reset-demo.bat` instead before practising the defense script.
 

@@ -137,7 +137,7 @@ public class HomeService {
         public boolean isIPayNextBill() { return iPayNextBill; }
     }
 
-    /** The middle: my XP, my pets, the one I show, and how it feels. */
+    /** The middle: the household's XP, its pets, the one it shows, and how it feels. */
     public static final class PetSummary {
         private final int xp;
         private final int xpThisWeek;
@@ -159,10 +159,10 @@ public class HomeService {
 
         public List<OwnedPet> getPets() { return pets; }
 
-        /** The pet on Home, or null when I have no pet yet. */
+        /** The pet on Home, or null when the household has no pet yet. */
         public OwnedPet getShown() { return shown; }
 
-        /** Null when I have no pet. */
+        /** Null when the household has no pet. */
         public PetService.Mood getMood() { return mood; }
 
         public boolean canAffordEgg() { return xp >= ShopCatalog.EGG_PRICE; }
@@ -237,7 +237,7 @@ public class HomeService {
     public PetSummary getPet() throws SettlrException {
         int xp = shopService.getBalance();
         int thisWeek = petService.getXpThisWeek();
-        List<OwnedPet> pets = petService.getMyPets();
+        List<OwnedPet> pets = petService.getPets();
         String shownCode = petService.getShownPetCode(pets);
         OwnedPet shown = null;
         for (OwnedPet p : pets) {
@@ -249,7 +249,7 @@ public class HomeService {
         return new PetSummary(xp, thisWeek, Collections.unmodifiableList(pets), shown, mood);
     }
 
-    /** Codes of everything I own (for the Edit pet popup). */
+    /** Codes of everything the household owns (for the Edit pet popup). */
     public Set<String> getOwnedCodes() throws SettlrException {
         return shopService.getOwnedCodes();
     }

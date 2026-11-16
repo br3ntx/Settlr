@@ -63,7 +63,7 @@ public final class Transaction {
                 return result;
             } catch (SettlrException | RuntimeException e) {
                 rollback(c, e);
-                throw e; // the real error, e.g. "You need 20 more XP."
+                throw e; // the real error, e.g. "Your household needs 20 more XP."
             } catch (SQLException e) {
                 rollback(c, e);
                 throw new DataAccessException(failMessage, e);

@@ -70,6 +70,9 @@ class TestHousehold {
     /** A ShopService on these in-memory DAOs. */
     ShopService shop() { return new ShopService(db, Session.getInstance()); }
 
+    /** A PetService on these in-memory DAOs. */
+    PetService pets() { return new PetService(db, Session.getInstance()); }
+
     /** An AuthService on these in-memory DAOs. */
     AuthService auth() { return new AuthService(db, Session.getInstance()); }
 

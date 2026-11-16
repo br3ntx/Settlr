@@ -5,7 +5,7 @@ package com.settlr.model;
  *
  * Used where a screen lets you change something and then Save or Cancel: the screen changes a
  * copy, so Cancel just throws the copy away and the original is untouched. For example,
- * Edit pet works on copies of your pets (OwnedPet.copy()).
+ * Edit pet works on copies of the household's pets (OwnedPet.copy()).
  */
 public interface Prototype<T> {
 

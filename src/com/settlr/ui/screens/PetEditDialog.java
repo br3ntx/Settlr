@@ -239,7 +239,7 @@ public final class PetEditDialog extends ModalPopup {
         tiles.setMinimumSize(d);
         tiles.setMaximumSize(d);
         emptyLabel.setText(all.size() == 1
-                ? "You don't have any " + (slot == Cosmetic.Slot.HAT ? "hats or bows" : "glasses") + " yet."
+                ? "Your household has no " + (slot == Cosmetic.Slot.HAT ? "hats or bows" : "glasses") + " yet."
                 : " ");
         card.revalidate();
         card.repaint();

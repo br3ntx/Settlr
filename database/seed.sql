@@ -120,10 +120,10 @@ INSERT INTO recurring_bill_members (bill_id, user_id) VALUES
   (2, 1), (2, 2), (2, 3), (2, 4), (2, 5);
 
 -- -------------------------------------------------------------------- pets
--- Everyone starts with the Dog so Home shows a pet (more come from pet eggs in the Shop).
-INSERT INTO owned_items (user_id, item_code) VALUES
-  (1, 'PET_DOG'), (2, 'PET_DOG'), (3, 'PET_DOG'), (4, 'PET_DOG'), (5, 'PET_DOG');
-UPDATE users SET active_pet = 'PET_DOG' WHERE user_id BETWEEN 1 AND 5;
+-- The household starts with the Dog so Home shows a pet (more come from pet eggs in the Shop).
+-- The pet belongs to the whole household: every member sees it.
+INSERT INTO owned_items (household_id, item_code) VALUES (1, 'PET_DOG');
+UPDATE households SET active_pet = 'PET_DOG' WHERE household_id = 1;
 
 -- ---------------------------------------------------------------- expenses
 INSERT INTO expenses (expense_id, household_id, bill_id, title, category, amount, paid_by,

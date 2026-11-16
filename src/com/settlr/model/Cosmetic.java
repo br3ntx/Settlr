@@ -1,6 +1,6 @@
 package com.settlr.model;
 
-/** A hat or accessory for your pets, bought in the Shop with XP. */
+/** A hat or accessory for the household's pets, bought in the Shop with XP. */
 public class Cosmetic extends ShopItem {
 
     /** Where it goes on the pet; also the Shop's filters. HAT covers everything worn on the head (hats, the bow). */

@@ -8,10 +8,14 @@
 --   ben    Asked Ana to take his Take Out Trash turn (pending swap). Ana owes him P300.
 --   carlo  Sent Ana a settle up that is waiting (used to show "Not received").
 --   dani   Owes Ana; settles up live in the second window. Asked Ana to take Buy Groceries.
---   ella   Owes Ana; Ana asks her to swap Mop Floors during the demo.
+--   ella   She and Ana are even (both paid each other). Ana asks her to swap Mop Floors.
 --   gio    Joined 3 days ago and owes Ana P500 (used to show removing a member).
 --   fritz  Has no household yet (used to show creating one and the invite code).
 --   (zoe is registered live during the demo and joins Fritz's household.)
+--
+-- The pet, its items and the XP belong to the household, so everyone in Casa Mabini sees the
+-- same pet (Mochi) and the same XP. Its mood depends on everyone: it starts sad because Ana
+-- has an overdue task; once she ticks it, it is still sad because Dani's Rent and WiFi are past due.
 --
 -- See docs/demo/Settlr Demo Script.docx for the click-by-click script.
 
@@ -27,8 +31,8 @@ INSERT INTO users (user_id, username, display_name, password_hash, created_at, p
   (6, 'gio',   'Gio',   'p1$39atKdtOjg1Eao5i$9eEm1qH-DoPX-lq8J28vtTSqnGJ0lPqF_gA-RnCGx18', NOW() - INTERVAL 3 DAY,  NULL, NULL, NULL),
   (7, 'fritz', 'Fritz', 'p1$GnyTJacN592s5lso$4wyZ0B32qTeWW9w7M1ftlGdQgsKA2JKFq4tHZoNG0b4', NOW() - INTERVAL 1 DAY,  NULL, NULL, NULL);
 
-INSERT INTO households (household_id, name, invite_code, created_by, created_at) VALUES
-  (1, 'Casa Mabini', 'MABN42', 1, NOW() - INTERVAL 40 DAY);
+INSERT INTO households (household_id, name, invite_code, created_by, created_at, active_pet) VALUES
+  (1, 'Casa Mabini', 'MABN42', 1, NOW() - INTERVAL 40 DAY, 'PET_DOG');
 
 -- Join order matters: rotating tasks go Ana > Ben > Carlo > Dani > Ella > Gio.
 INSERT INTO household_members (household_id, user_id, role, joined_at) VALUES
@@ -133,15 +137,17 @@ INSERT INTO recurring_bill_members (bill_id, user_id) VALUES
   (3, 1), (3, 2), (3, 3), (3, 4), (3, 5);
 
 -- ---------------------------------------------------------------- expenses
+-- Only Rent and WiFi (due on the 1st and 5th) and Cleaning supplies (already paid) are past
+-- their due date, so the only past-due debt in the house is Dani's Rent and WiFi.
 INSERT INTO expenses (expense_id, household_id, bill_id, title, category, amount, paid_by,
                       due_date, created_by, created_at) VALUES
   (1, 1, 1,    'Rent',             'RENT',        12000.00, 1, DATE_FORMAT(CURDATE(), '%Y-%m-01'), 1, TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '00:05:00')),
   (2, 1, 2,    'WiFi',             'WIFI',         1500.00, 1, DATE_FORMAT(CURDATE(), '%Y-%m-05'), 1, TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '00:05:00')),
-  (3, 1, NULL, 'Groceries',        'GROCERIES',    2351.00, 3, CURDATE() - INTERVAL 6 DAY, 3, NOW() - INTERVAL 6 DAY),
-  (4, 1, NULL, 'Water bill',       'WATER',        1000.00, 4, CURDATE() - INTERVAL 8 DAY, 4, NOW() - INTERVAL 8 DAY),
-  (5, 1, NULL, 'Electricity',      'ELECTRICITY',  3200.00, 5, CURDATE() - INTERVAL 2 DAY, 5, NOW() - INTERVAL 4 DAY),
+  (3, 1, NULL, 'Groceries',        'GROCERIES',    2351.00, 3, CURDATE() + INTERVAL 3 DAY, 3, NOW() - INTERVAL 6 DAY),
+  (4, 1, NULL, 'Water bill',       'WATER',        1000.00, 4, CURDATE() + INTERVAL 5 DAY, 4, NOW() - INTERVAL 8 DAY),
+  (5, 1, NULL, 'Electricity',      'ELECTRICITY',  3200.00, 5, CURDATE() + INTERVAL 2 DAY, 5, NOW() - INTERVAL 4 DAY),
   (6, 1, NULL, 'LPG refill',       'OTHER',         900.00, 2, CURDATE() + INTERVAL 4 DAY, 2, NOW() - INTERVAL 1 DAY),
-  (7, 1, NULL, 'Welcome merienda', 'GROCERIES',    1500.00, 1, CURDATE() - INTERVAL 2 DAY, 1, NOW() - INTERVAL 3 DAY),
+  (7, 1, NULL, 'Welcome merienda', 'GROCERIES',    1500.00, 1, CURDATE() + INTERVAL 6 DAY, 1, NOW() - INTERVAL 3 DAY),
   (8, 1, NULL, 'Cleaning supplies','OTHER',         450.00, 5, CURDATE() - INTERVAL 9 DAY, 5, NOW() - INTERVAL 10 DAY);
 
 -- Equal splits to the centavo; the payer's own share is settled right away.
@@ -169,10 +175,13 @@ INSERT INTO expense_shares (expense_id, user_id, amount_owed, settled_at) VALUES
 -- 1. History: Ben settled up with Ana for Rent and WiFi; Ana confirmed it.
 -- 2. Waiting for Ana: Carlo settled up for Rent, WiFi and the merienda, minus the
 --    Groceries share Ana owes him (2400 + 300 + 500 - 470.20 = 2,729.80).
+-- 3. History: Ella settled up with Ana for Rent and WiFi in cash; Ana confirmed it.
 INSERT INTO settlements (settlement_id, household_id, from_user, to_user, amount, note, created_at, status, responded_at) VALUES
   (1, 1, 2, 1, 2700.00, 'GCash ref 7781', TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '09:00:00'), 'CONFIRMED',
         TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '12:00:00')),
-  (2, 1, 3, 1, 2729.80, 'GCash ref 4821', NOW() - INTERVAL 1 HOUR, 'PENDING', NULL);
+  (2, 1, 3, 1, 2729.80, 'GCash ref 4821', NOW() - INTERVAL 1 HOUR, 'PENDING', NULL),
+  (3, 1, 5, 1, 2700.00, 'Cash', TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '10:00:00'), 'CONFIRMED',
+        TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '13:00:00'));
 
 INSERT INTO payments (share_id, from_user, to_user, amount, paid_at, status, confirmed_at, note, settlement_id) VALUES
   ((SELECT share_id FROM expense_shares WHERE expense_id = 1 AND user_id = 2), 2, 1, 2400.00,
@@ -181,6 +190,12 @@ INSERT INTO payments (share_id, from_user, to_user, amount, paid_at, status, con
   ((SELECT share_id FROM expense_shares WHERE expense_id = 2 AND user_id = 2), 2, 1, 300.00,
         TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '09:00:00'), 'CONFIRMED',
         TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '12:00:00'), 'GCash ref 7781', 1),
+  ((SELECT share_id FROM expense_shares WHERE expense_id = 1 AND user_id = 5), 5, 1, 2400.00,
+        TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '10:00:00'), 'CONFIRMED',
+        TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '13:00:00'), 'Cash', 3),
+  ((SELECT share_id FROM expense_shares WHERE expense_id = 2 AND user_id = 5), 5, 1, 300.00,
+        TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '10:00:00'), 'CONFIRMED',
+        TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '13:00:00'), 'Cash', 3),
   ((SELECT share_id FROM expense_shares WHERE expense_id = 1 AND user_id = 3), 3, 1, 2400.00,
         NOW() - INTERVAL 1 HOUR, 'PENDING', NULL, 'GCash ref 4821', 2),
   ((SELECT share_id FROM expense_shares WHERE expense_id = 2 AND user_id = 3), 3, 1, 300.00,
@@ -189,6 +204,9 @@ INSERT INTO payments (share_id, from_user, to_user, amount, paid_at, status, con
         NOW() - INTERVAL 1 HOUR, 'PENDING', NULL, 'GCash ref 4821', 2),
   ((SELECT share_id FROM expense_shares WHERE expense_id = 3 AND user_id = 1), 1, 3, 470.20,
         NOW() - INTERVAL 1 HOUR, 'PENDING', NULL, 'GCash ref 4821', 2),
+  -- Electricity: Ana paid Ella her share in cash, confirmed
+  ((SELECT share_id FROM expense_shares WHERE expense_id = 5 AND user_id = 1), 1, 5, 640.00,
+        NOW() - INTERVAL 3 DAY, 'CONFIRMED', NOW() - INTERVAL 3 DAY + INTERVAL 1 HOUR, 'Cash', NULL),
   -- Groceries: Ben paid Carlo on his own, confirmed
   ((SELECT share_id FROM expense_shares WHERE expense_id = 3 AND user_id = 2), 2, 3, 470.20,
         NOW() - INTERVAL 5 DAY, 'CONFIRMED', NOW() - INTERVAL 5 DAY + INTERVAL 2 HOUR, NULL, NULL),
@@ -204,27 +222,23 @@ JOIN payments p ON p.share_id = es.share_id AND p.status = 'CONFIRMED'
 SET es.settled_at = p.paid_at;
 
 -- -------------------------------------------------------------------- shop
--- Ana: the Dog (named Mochi, wearing the Party hat) and the Cat, plus a Party hat and Glasses.
--- Everyone else starts with the Dog. Fritz has no pet yet.
-INSERT INTO owned_items (user_id, item_code, acquired_at, pet_name, hat, glasses) VALUES
+-- Casa Mabini's things (shared by every member): the Dog (named Mochi, wearing the Party hat)
+-- and the Cat, plus a Party hat and Glasses. Mochi is the pet everyone sees on Home.
+-- Fritz has no household, so no pet yet.
+INSERT INTO owned_items (household_id, item_code, acquired_at, pet_name, hat, glasses) VALUES
   (1, 'PET_DOG',       NOW() - INTERVAL 40 DAY, 'Mochi', 'HAT_PARTY', NULL),
   (1, 'PET_CAT',       NOW() - INTERVAL 12 DAY, NULL, NULL, NULL),
   (1, 'HAT_PARTY',     NOW() - INTERVAL 20 DAY, NULL, NULL, NULL),
-  (1, 'GLASSES_ROUND', NOW() - INTERVAL 15 DAY, NULL, NULL, NULL),
-  (2, 'PET_DOG',       NOW() - INTERVAL 39 DAY, NULL, NULL, NULL),
-  (3, 'PET_DOG',       NOW() - INTERVAL 39 DAY, NULL, NULL, NULL),
-  (4, 'PET_DOG',       NOW() - INTERVAL 38 DAY, NULL, NULL, NULL),
-  (5, 'PET_DOG',       NOW() - INTERVAL 38 DAY, NULL, NULL, NULL),
-  (6, 'PET_DOG',       NOW() - INTERVAL 3 DAY,  NULL, NULL, NULL);
-UPDATE users SET active_pet = 'PET_DOG' WHERE user_id BETWEEN 1 AND 6;
+  (1, 'GLASSES_ROUND', NOW() - INTERVAL 15 DAY, NULL, NULL, NULL);
 
--- Ana's purchases, and a starting amount so she has 350 XP when the demo starts
--- (90 XP earned from her finished tasks + 570 - 60 - 100 - 150 = 350).
-INSERT INTO xp_transactions (user_id, amount, reason, created_at) VALUES
-  (1,  570, 'Starting XP for the demo', NOW() - INTERVAL 40 DAY),
-  (1,  -60, 'Bought Party hat',         NOW() - INTERVAL 20 DAY),
-  (1, -100, 'Bought Glasses',           NOW() - INTERVAL 15 DAY),
-  (1, -150, 'Hatched a pet egg',        NOW() - INTERVAL 12 DAY);
+-- What the household bought, and a starting amount so it has 350 XP when the demo starts
+-- (470 XP earned from everyone's finished tasks and on-time payments
+--  + 190 - 60 - 100 - 150 = 350).
+INSERT INTO xp_transactions (household_id, user_id, amount, reason, created_at) VALUES
+  (1, 1,  190, 'Starting XP for the demo', NOW() - INTERVAL 40 DAY),
+  (1, 1,  -60, 'Bought Party hat',         NOW() - INTERVAL 20 DAY),
+  (1, 5, -100, 'Bought Glasses',           NOW() - INTERVAL 15 DAY),
+  (1, 2, -150, 'Hatched a pet egg',        NOW() - INTERVAL 12 DAY);
 
 -- ------------------------------------------------------------ activity feed
 INSERT INTO activity_log (household_id, user_id, action, message, created_at) VALUES
@@ -235,6 +249,7 @@ INSERT INTO activity_log (household_id, user_id, action, message, created_at) VA
   (1, 5, 'MEMBER_JOINED',     'Ella joined the household',            NOW() - INTERVAL 38 DAY + INTERVAL 1 HOUR),
   (1, 3, 'TASK_MISSED',       'Carlo missed Clean Bathroom',          CURDATE() - INTERVAL 10 DAY + INTERVAL 10 HOUR),
   (1, 1, 'PAYMENT_CONFIRMED', 'Ana confirmed a settle up from Ben',   TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '12:00:00')),
+  (1, 1, 'PAYMENT_CONFIRMED', 'Ana confirmed a settle up from Ella',  TIMESTAMP(DATE_FORMAT(CURDATE(), '%Y-%m-01'), '13:00:00')),
   (1, 4, 'EXPENSE_ADDED',     'Dani added Water bill',                NOW() - INTERVAL 8 DAY),
   (1, 2, 'SWAP_ACCEPTED',     'Ben took Clean Bathroom from Carlo',   NOW() - INTERVAL 5 DAY + INTERVAL 2 HOUR),
   (1, 2, 'TASK_DONE',         'Ben completed Clean Bathroom',         CURDATE() - INTERVAL 4 DAY + INTERVAL 9 HOUR),

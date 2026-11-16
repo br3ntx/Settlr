@@ -1,8 +1,14 @@
 package com.settlr.service;
 
 import com.settlr.exception.ValidationException;
+import com.settlr.model.Household;
+import com.settlr.model.Membership;
+import com.settlr.model.Role;
 import com.settlr.model.Task;
+import com.settlr.model.User;
 import com.settlr.model.XpActivity;
+import com.settlr.util.Session;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -10,7 +16,10 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/** Checks the XP rules (XpRules) and that the Shop spends XP correctly. */
+/**
+ * Checks the XP rules (XpRules) and that the Shop spends XP correctly. XP and items belong to
+ * the whole household, so what one member earns or buys counts for everyone.
+ */
 public class XpAndShopTest {
 
     private TestHousehold h;
@@ -73,11 +82,63 @@ public class XpAndShopTest {
         h.shop().buy("HAT_BOW");
     }
 
-    /** Finishes tasks on time worth this many points. */
+    @Test
+    public void everyonesTasksAddToOneHouseholdBalance() throws Exception {
+        earn(4, h.ana);   // 40 XP
+        earn(3, h.ben);   // 30 XP
+        earn(2, h.carlo); // 20 XP
+
+        assertEquals(90, h.shop().getBalance()); // Ana sees everyone's XP
+        h.logIn(h.ben);
+        assertEquals(90, h.shop().getBalance()); // and so does Ben
+    }
+
+    @Test
+    public void whatOneMemberBuysEveryoneOwnsAndPaysFor() throws Exception {
+        earn(10, h.ben); // Ben earns 100 XP
+
+        h.shop().buy("HAT_PARTY"); // Ana spends 60 of it
+
+        h.logIn(h.carlo);
+        assertTrue(h.shop().getOwnedCodes().contains("HAT_PARTY"));
+        assertEquals(40, h.shop().getBalance());
+    }
+
+    @Test(expected = ValidationException.class)
+    public void aSecondMemberCantBuyWhatTheHouseholdAlreadyHas() throws Exception {
+        earn(20);
+        h.shop().buy("HAT_BOW");
+        h.logIn(h.ben);
+        h.shop().buy("HAT_BOW");
+    }
+
+    @Test
+    public void anotherHouseholdsXpAndItemsDontCount() throws Exception {
+        earn(10);
+        h.shop().buy("HAT_PARTY");
+
+        // Dani has a household of her own in the same database
+        User dani = new User(4, "dani", "Dani", h.ana.getPasswordHash(), h.now);
+        h.db.users().insert(dani);
+        Household casaOtra = new Household(2, "Casa Otra", "PTHRAZ", dani.getId());
+        h.db.households().insert(casaOtra);
+        h.db.memberships().insert(new Membership(casaOtra.getId(), dani.getId(), Role.ADMIN, h.now, true));
+        Session.getInstance().start(dani, casaOtra, Role.ADMIN);
+
+        assertEquals(0, h.shop().getBalance());
+        assertTrue(h.shop().getOwnedCodes().isEmpty());
+    }
+
+    /** Finishes tasks on time worth this many points, as Ana. */
     private void earn(int points) throws Exception {
+        earn(points, h.ana);
+    }
+
+    /** Finishes tasks on time worth this many points, as this member. */
+    private void earn(int points, User who) throws Exception {
         while (points > 0) {
             int p = Math.min(points, 5);
-            Task t = h.oneTimeTask("Chore " + points, p, h.ana, h.now.plusHours(1));
+            Task t = h.oneTimeTask("Chore " + points, p, who, h.now.plusHours(1));
             h.tasks().completeAssignment(h.onlyTurnOf(t).getId());
             points -= p;
         }

@@ -18,8 +18,6 @@ import com.settlr.exception.SettlrException;
 import com.settlr.util.Transaction;
 import com.settlr.util.TransactionRunner;
 
-import java.lang.reflect.Proxy;
-
 /**
  * The second family of DAOs (Abstract Factory): everything is kept in Java lists instead of
  * MySQL, so tests can check the services without a database.
@@ -28,8 +26,7 @@ import java.lang.reflect.Proxy;
  *     db.users().insert(new User(...));
  *     TaskService tasks = new TaskService(db, Session.getInstance());   // uses the lists
  *
- * Every DAO the tests need is filled in. The few without an in-memory version yet
- * (settlements) fail with a clear message when a method is called; add one when a test needs it.
+ * Every DAO has an in-memory version, so any service can be tested this way.
  */
 public class InMemoryDaoFactory extends DaoFactory {
 
@@ -59,7 +56,7 @@ public class InMemoryDaoFactory extends DaoFactory {
 
     @Override public ShopDao shop() { return new InMemoryShopDao(db); }
 
-    @Override public SettlementDao settlements() { return notYet(SettlementDao.class); }
+    @Override public SettlementDao settlements() { return new InMemorySettlementDao(db); }
 
     /**
      * Lists can't roll back, so "transactions" here just run the work. Tests check what
@@ -73,24 +70,5 @@ public class InMemoryDaoFactory extends DaoFactory {
                 return work.run(null); // in-memory DAOs never use the Connection
             }
         };
-    }
-
-    /**
-     * A stand-in for a DAO with no in-memory version yet. Services can still be created
-     * (they ask for every DAO in their constructor); only calling one of its methods fails,
-     * with a message that says what to add.
-     */
-    @SuppressWarnings("unchecked")
-    private static <T> T notYet(Class<T> dao) {
-        return (T) Proxy.newProxyInstance(dao.getClassLoader(), new Class<?>[] {dao}, (proxy, method, args) -> {
-            switch (method.getName()) { // the methods every object has
-                case "toString": return dao.getSimpleName() + " (not in memory)";
-                case "hashCode": return System.identityHashCode(proxy);
-                case "equals":   return proxy == args[0];
-                default: break;
-            }
-            throw new UnsupportedOperationException(dao.getSimpleName() + "." + method.getName()
-                    + " has no in-memory version yet. Add one to InMemoryDaoFactory.");
-        });
     }
 }

@@ -19,7 +19,7 @@ import java.awt.*;
 /**
  * The Shop's popups:
  *   - buy(...)   "Buy Crown?" with the price and what you'll have left, or how much more XP you need
- *   - egg(...)   "Hatch a pet egg?", then what came out (a new pet, or one you had and some XP back)
+ *   - egg(...)   "Hatch a pet egg?", then what came out (a new pet, or one the household had and some XP back)
  * onChanged runs after anything was bought, so the Shop page can reload.
  */
 public final class ShopDialog extends ModalPopup {
@@ -138,7 +138,7 @@ public final class ShopDialog extends ModalPopup {
             line("+" + ShopScreen.xp(ShopCatalog.DUPLICATE_REFUND), Theme.MINT);
         } else {
             title("You got " + article(pet.getName()) + " " + pet.getName() + "!");
-            line("It can wear any hat or accessory you own.", Theme.MUTED_TEXT);
+            line("It joins your household and can wear any hat or accessory.", Theme.MUTED_TEXT);
         }
         JLabel error = errorLine();
 
