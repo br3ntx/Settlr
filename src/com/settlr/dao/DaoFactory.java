@@ -3,6 +3,7 @@ package com.settlr.dao;
 import com.settlr.dao.mysql.MySqlDaoFactory;
 import com.settlr.util.TransactionRunner;
 
+// DESIGN PATTERN: Abstract Factory - makes a whole family of DAOs. The app gets MySqlDaoFactory, the tests get InMemoryDaoFactory; services only ever see DaoFactory.
 /**
  * Hands out the DAOs (Abstract Factory pattern).
  *

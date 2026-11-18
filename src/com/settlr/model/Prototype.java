@@ -1,5 +1,6 @@
 package com.settlr.model;
 
+// DESIGN PATTERN: Prototype (interface) - anything that can make a copy of itself with copy().
 /**
  * Something that can make a copy of itself (Prototype pattern).
  *

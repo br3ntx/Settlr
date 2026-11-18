@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+// DESIGN PATTERN: Adapter - makes a single payment (BalanceService.PaymentRow) look like a PendingPayment.
 /**
  * Makes an older single-share payment (BalanceService.PaymentRow, from before settle ups
  * existed) look like a PendingPayment (Adapter pattern).

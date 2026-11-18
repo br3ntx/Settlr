@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+// DESIGN PATTERN: Builder - create an Expense with Expense.builder()...build(): fields are set step by step and checked once in build(), instead of a 10-argument constructor.
 /**
  * Money one member paid for the group (for example a P900 grocery run).
  * It stores the whole bill; each person's portion is an ExpenseShare.
@@ -61,6 +62,7 @@ public class Expense {
         return new Builder();
     }
 
+    // DESIGN PATTERN: Builder (the builder itself) - each method sets one field and returns this; build() checks everything and makes the Expense.
     /**
      * Collects an expense's values one at a time, then build() checks them all at once.
      * Left out: id (0 = not saved yet), billId (null = typed in by hand), createdAt (now).

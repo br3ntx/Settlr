@@ -12,6 +12,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
+// DESIGN PATTERN: Template Method - query() and update() hold the fixed JDBC steps (connect, prepare, run, close, handle errors); each DAO fills in only mapRow(...).
 /**
  * The shared JDBC steps every MySQL DAO used to copy by hand (Template Method pattern).
  *
@@ -39,6 +40,7 @@ import java.util.List;
  */
 public abstract class AbstractDao<T> {
 
+    // DESIGN PATTERN: Template Method (the step each DAO fills in) - turn one row into an object.
     /** Turns one row into an object. The step each DAO fills in. */
     protected abstract T mapRow(ResultSet rs) throws SQLException;
 

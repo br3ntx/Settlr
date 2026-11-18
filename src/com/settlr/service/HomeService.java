@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
+// DESIGN PATTERN: Facade - one simple class Home uses (getTasks, getMoney, getPet) that hides the Task, Settlement, Pet and Shop services behind it.
 /**
  * Everything the Home page needs, in one place (Facade pattern).
  *

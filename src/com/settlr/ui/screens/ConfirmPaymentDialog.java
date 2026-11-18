@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+// DESIGN PATTERN: Adapter (Client) - one confirm popup handles both kinds of payment, through PendingPayment.
 /**
  * The "Did Dani pay you?" popup for a PendingPayment: who sent it, what they say they sent,
  * and a breakdown of the expenses it covers (shares of yours that cancel out show as minus),

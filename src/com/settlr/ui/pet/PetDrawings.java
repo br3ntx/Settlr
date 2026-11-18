@@ -8,6 +8,7 @@ public final class PetDrawings {
 
     private PetDrawings() { }
 
+    // DESIGN PATTERN: Decorator (used here) - stacks PlainPet, then GlassesDecorator, then HatDecorator from what the pet wears.
     /** The pet with its glasses and head item on; the egg if pet is null. */
     public static PetDrawing of(OwnedPet pet) {
         if (pet == null) {

@@ -9,6 +9,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
+// DESIGN PATTERN: Singleton - one shared database connection setup; get it with DBConnection.getInstance().
 /**
  * Opens connections to the MySQL database.
  *

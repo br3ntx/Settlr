@@ -10,6 +10,7 @@ import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 
+// DESIGN PATTERN: Decorator (base Decorator) - wraps another PetDrawing, draws it first, then draws one item on top.
 /**
  * A pet wearing one more item (the "decorator" of the Decorator pattern). It draws whatever it
  * wraps first, then its own item's picture on top, so items stack in the order they were wrapped.

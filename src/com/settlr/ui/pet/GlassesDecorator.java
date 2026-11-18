@@ -4,6 +4,7 @@ import com.settlr.model.Cosmetic;
 
 import java.awt.geom.Rectangle2D;
 
+// DESIGN PATTERN: Decorator (Concrete Decorator) - adds the glasses.
 /** Puts glasses on the pet, with one lens over each eye. */
 public class GlassesDecorator extends OutfitDecorator {
 

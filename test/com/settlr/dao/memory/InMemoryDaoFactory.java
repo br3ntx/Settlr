@@ -18,6 +18,7 @@ import com.settlr.exception.SettlrException;
 import com.settlr.util.Transaction;
 import com.settlr.util.TransactionRunner;
 
+// DESIGN PATTERN: Abstract Factory (Concrete Factory) - makes the in-memory DAOs the tests use, so they run without MySQL.
 /**
  * The second family of DAOs (Abstract Factory): everything is kept in Java lists instead of
  * MySQL, so tests can check the services without a database.

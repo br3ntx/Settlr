@@ -64,6 +64,7 @@ public final class PetEditDialog extends ModalPopup {
 
     private PetEditDialog(List<OwnedPet> myPets, String shownCode, Set<String> owned, Runnable onSaved) {
         for (OwnedPet p : myPets) {
+            // DESIGN PATTERN: Prototype (used here) - Edit pet works on copies, so Cancel leaves the real pets unchanged.
             pets.put(p.getPet().getCode(), p.copy());
         }
         this.shownCode = shownCode;

@@ -3,6 +3,7 @@ package com.settlr.model;
 import java.util.EnumMap;
 import java.util.Map;
 
+// DESIGN PATTERN: Prototype (Concrete Prototype) - copy() makes an independent copy of the pet with its name and outfit.
 /**
  * One of the user's pets, with the name they gave it and what it's wearing: at most one
  * cosmetic per slot (one thing on its head, one pair of glasses). Each pet keeps its own outfit.

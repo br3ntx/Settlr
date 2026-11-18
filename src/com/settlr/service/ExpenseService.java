@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+// DESIGN PATTERN: Strategy (Context) - addExpense takes any SplitStrategy and just calls strategy.split(...), without knowing which rule it is.
 /**
  * Business rules for expenses and recurring bills: validates input, splits the amount
  * with a SplitStrategy, and saves an expense together with its shares in ONE transaction.
@@ -237,6 +238,7 @@ public class ExpenseService {
     private List<ExpenseShare> buildShares(BigDecimal amount, int payerId, List<Integer> memberIds,
                                            SplitStrategy strategy) throws ValidationException {
         validateMemberIds(memberIds);
+        // DESIGN PATTERN: Strategy (used here) - whichever SplitStrategy was passed in does the splitting.
         List<ExpenseShare> shares = strategy.split(amount, payerId, memberIds);
         if (shares == null || shares.size() != memberIds.size()) {
             throw new ValidationException("The amount could not be split. Please try again.");

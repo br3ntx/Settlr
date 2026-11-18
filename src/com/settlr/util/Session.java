@@ -6,6 +6,7 @@ import com.settlr.model.Household;
 import com.settlr.model.Role;
 import com.settlr.model.User;
 
+// DESIGN PATTERN: Singleton - only one Session exists (private constructor); every class gets it with Session.getInstance(). It remembers who is logged in, their household and role.
 /**
  * Remembers who is logged in while the app is running.
  *

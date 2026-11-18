@@ -2,6 +2,7 @@ package com.settlr.factory;
 
 import com.settlr.model.Task;
 
+// DESIGN PATTERN: Factory Method (Creator) - forType(...) picks the creator, and each subclass's createTask() decides which Task subclass is built, so no if/else on the task type elsewhere.
 /**
  * FACTORY METHOD pattern: the Creator.
  *

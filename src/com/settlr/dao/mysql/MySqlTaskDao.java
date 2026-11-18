@@ -86,6 +86,7 @@ public class MySqlTaskDao extends AbstractDao<Task> implements TaskDao {
         update(c, "UPDATE tasks SET is_archived = TRUE WHERE task_id = ?", "Could not delete the task.", id);
     }
 
+    // DESIGN PATTERN: Template Method (filled-in step) - AbstractDao runs the query; this DAO only turns a row into a Task.
     /**
      * Reads the row into a plain TaskRecord; which class to build (OneTimeTask or RecurringTask)
      * is then decided by a TaskCreator (Factory Method).
@@ -97,6 +98,7 @@ public class MySqlTaskDao extends AbstractDao<Task> implements TaskDao {
                 rs.getInt("points"), rs.getString("recurrence"),
                 rs.getObject("first_due_at", LocalDateTime.class), rs.getInt("default_assignee_id"),
                 rs.getBoolean("rotates"), rs.getInt("created_by"), rs.getBoolean("is_archived"));
+        // DESIGN PATTERN: Factory Method (used here) - the DAO never checks the task type; the creator builds the right Task subclass.
         return TaskCreator.forType(record.getType()).fromRecord(record);
     }
 }

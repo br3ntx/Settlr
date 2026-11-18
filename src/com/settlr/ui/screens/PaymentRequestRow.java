@@ -13,6 +13,7 @@ import java.awt.event.MouseEvent;
 
 import static com.settlr.ui.components.Ui.*;
 
+// DESIGN PATTERN: Adapter (Client) - one row type shows both kinds of payment, through PendingPayment.
 /**
  * "Ben says they paid you P1,048.20 / GCash ref 1234 · just now   Not received [Confirm]".
  * One row type for both kinds of payment: PendingPayment hides which kind it is (Adapter).

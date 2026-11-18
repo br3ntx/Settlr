@@ -55,6 +55,7 @@ public class HomeScreen extends BaseScreen {
     private static final DateTimeFormatter TODAY = DateTimeFormatter.ofPattern("EEEE, MMM d", Locale.ENGLISH);
     private static final DateTimeFormatter BILL_DAY = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
 
+    // DESIGN PATTERN: Facade (used here) - Home talks to HomeService only, never to the other services directly.
     private final HomeService homeService = new HomeService(); // everything Home shows (Facade)
     private final Background background = new Background();    // loads off the Swing thread
 

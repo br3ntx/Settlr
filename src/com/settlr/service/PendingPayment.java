@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+// DESIGN PATTERN: Adapter (Target interface) - what the screens expect any payment request to look like.
 /**
  * A payment someone says they sent you, waiting for you to confirm it or say you didn't get it.
  *

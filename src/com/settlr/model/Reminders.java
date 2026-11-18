@@ -35,10 +35,12 @@ public class Reminders {
         setSettlementsToConfirm(settlementsToConfirm);
     }
 
-    public List<Settlement> getSettlementsToConfirm() {
+    // Settle ups that are waiting to be confirmed
+    public List<Settlement> getSettlementsToConfirm() { 
         return Collections.unmodifiableList(settlementsToConfirm);
     }
 
+    
     public void setSettlementsToConfirm(List<Settlement> settlementsToConfirm) {
         if (settlementsToConfirm == null) {
             throw new IllegalArgumentException("The settle up list cannot be null.");
@@ -46,6 +48,7 @@ public class Reminders {
         this.settlementsToConfirm = new ArrayList<>(settlementsToConfirm);
     }
 
+    // overdue turns
     public List<TaskAssignment> getOverdueTasks() {
         return Collections.unmodifiableList(overdueTasks);
     }
@@ -57,6 +60,7 @@ public class Reminders {
         this.overdueTasks = new ArrayList<>(overdueTasks);
     }
 
+    //the unpaid shares past their due date
     public List<ExpenseShare> getUnpaidPastDueShares() {
         return Collections.unmodifiableList(unpaidPastDueShares);
     }

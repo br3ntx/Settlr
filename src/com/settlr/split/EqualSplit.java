@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+// DESIGN PATTERN: Strategy (Concrete Strategy) - splits equally, rounded down to the centavo; leftover centavos go to the payer.
 /**
  * Splits an amount equally, rounded down to the centavo (rule 3.5 of the master
  * document). Nothing is saved here; it only calculates the shares.

@@ -17,6 +17,7 @@ import com.settlr.dao.UserDao;
 import com.settlr.util.Transaction;
 import com.settlr.util.TransactionRunner;
 
+// DESIGN PATTERN: Abstract Factory (Concrete Factory) - makes the MySQL DAOs the app uses.
 /** The family of DAOs that talk to MySQL. This is the one the app uses. */
 public class MySqlDaoFactory extends DaoFactory {
 

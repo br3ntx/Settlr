@@ -7,6 +7,7 @@ import java.awt.CardLayout;
 import java.util.HashMap;
 import java.util.Map;
 
+// DESIGN PATTERN: Singleton - one object switches the screens of the one window; Navigator.getInstance().show(...).
 /**
  * Switches between screens. There is only one Navigator (singleton):
  *     Navigator.getInstance().show(Navigator.TASKS);

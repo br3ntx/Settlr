@@ -5,6 +5,7 @@ import com.settlr.model.ExpenseShare;
 import java.math.BigDecimal;
 import java.util.List;
 
+// DESIGN PATTERN: Strategy (interface) - a rule for splitting an expense; a new rule is a new class, ExpenseService does not change.
 /**
  * A rule for dividing an expense among members. Today only EqualSplit exists;
  * a future PercentSplit can implement this same interface without changing

@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+// DESIGN PATTERN: Adapter - makes a settle up (SettlementService.Incoming) look like a PendingPayment.
 /** Makes a settle up (SettlementService.Incoming) look like a PendingPayment (Adapter pattern). */
 public class SettleUpAdapter implements PendingPayment {
 

@@ -2,6 +2,7 @@ package com.settlr.ui.pet;
 
 import java.awt.Graphics2D;
 
+// DESIGN PATTERN: Decorator (Component interface) - anything that can draw a pet: the plain pet and every decorator.
 /**
  * Something that draws a pet (the "component" of the Decorator pattern).
  *

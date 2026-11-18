@@ -8,6 +8,7 @@ import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 
+// DESIGN PATTERN: Decorator (Concrete Component) - draws the bare animal; the decorators wrap it.
 /**
  * The pet on its own, wearing nothing: its picture (PetArt), or a dashed "Pet picture goes here"
  * circle if it has no picture yet. With no pet at all (null) it draws the pet egg.

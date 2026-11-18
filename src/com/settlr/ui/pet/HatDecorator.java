@@ -4,6 +4,7 @@ import com.settlr.model.Cosmetic;
 
 import java.awt.geom.Rectangle2D;
 
+// DESIGN PATTERN: Decorator (Concrete Decorator) - adds the head item (a hat or the bow).
 /**
  * Puts something on the pet's head: a hat on top in the middle, or the bow off to one side.
  *
